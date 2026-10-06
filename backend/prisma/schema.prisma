@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum Role {
+  customer
+  staff
+  admin
+}
+
+enum MovieStatus {
+  coming_soon
+  showing
+  ended
+}
+
+enum SeatType {
+  standard
+  vip
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  role         Role      @default(customer)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Genre {
+  id        String       @id @default(uuid())
+  name      String       @unique
+  slug      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  movies    MovieGenre[]
+
+  @@map("genres")
+}
+
+model Movie {
+  id          String       @id @default(uuid())
+  title       String
+  slug        String       @unique
+  description String?      @db.Text
+  poster      String?
+  format      String       @default("2D")
+  runtime     Int          @default(120) // Runtime in minutes
+  rating      Float        @default(0.0)
+  status      MovieStatus  @default(showing)
+  releaseDate DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  genres      MovieGenre[]
+
+  @@map("movies")
+}
+
+model MovieGenre {
+  movieId String
+  genreId String
+  movie   Movie  @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  genre   Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([movieId, genreId])
+  @@map("movie_genres")
+}
+
+model Cinema {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  location  String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  rooms     Room[]
+
+  @@map("cinemas")
+}
+
+model Room {
+  id        String   @id @default(uuid())
+  cinemaId  String
+  name      String
+  format    String   @default("2D")
+  capacity  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cinema    Cinema   @relation(fields: [cinemaId], references: [id], onDelete: Cascade)
+  seats     Seat[]
+
+  @@unique([cinemaId, name])
+  @@map("rooms")
+}
+
+model Seat {
+  id        String   @id @default(uuid())
+  roomId    String
+  row       String
+  number    Int
+  type      SeatType @default(standard)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, row, number])
+  @@map("seats")
+}

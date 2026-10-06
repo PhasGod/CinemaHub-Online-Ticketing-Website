@@ -1,0 +1,10 @@
+{
+  "description": "Streamline movie discovery and ticket booking with a modern, user-friendly platform offering showtimes, seat selection, combos, and secure payments.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
