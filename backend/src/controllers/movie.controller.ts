@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 import { z } from "zod"
 import { prisma } from "../config/db.js"
+import { parsePagination } from "../utils/pagination.js"
 
 function slugify(text: string): string {
   return text
@@ -15,7 +16,7 @@ function slugify(text: string): string {
 }
 
 const movieSchema = z.object({
-  title: z.string().min(2, "Tên phim phải có ít nhất 2 ký tự"),
+  title: z.string().trim().min(2, "Tên phim phải có ít nhất 2 ký tự"),
   slug: z.string().optional(),
   description: z.string().optional().nullable(),
   poster: z.string().optional().nullable(),
@@ -23,8 +24,15 @@ const movieSchema = z.object({
   runtime: z.number().int().positive("Thời lượng phim phải là số dương").default(120),
   rating: z.number().min(0).max(10).default(0.0),
   status: z.enum(["coming_soon", "showing", "ended"]).default("showing"),
-  releaseDate: z.string().optional().nullable(),
-  genreIds: z.array(z.string()).optional().default([]),
+  releaseDate: z.string().refine((value) => {
+    if (value === "") return true
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+    const date = new Date(`${value}T00:00:00.000Z`)
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+  }, "Ngày khởi chiếu phải là ngày hợp lệ theo định dạng YYYY-MM-DD").optional().nullable(),
+  genreIds: z.array(z.string().uuid("ID thể loại không hợp lệ"))
+    .refine((ids) => new Set(ids).size === ids.length, "Không chọn trùng thể loại")
+    .optional().default([]),
 })
 
 const movieIncludes = {
@@ -54,9 +62,17 @@ export async function getMovies(req: Request, res: Response) {
     const q = ((req.query.q || req.query.search) as string | undefined || "").trim()
     const statusFilter = req.query.status as string | undefined
     const genreFilter = (req.query.genreId || req.query.genreSlug) as string | undefined
-    const page = Math.max(1, parseInt((req.query.page as string) || "1"))
-    const limit = Math.max(1, Math.min(100, parseInt((req.query.limit as string) || "20")))
-    const skip = (page - 1) * limit
+    let pagination
+
+    try {
+      pagination = parsePagination(req.query.page, req.query.limit, 20)
+    } catch (err: unknown) {
+      return res.status(400).json({
+        error: err instanceof Error ? err.message : "Phân trang không hợp lệ",
+      })
+    }
+
+    const { page, limit, skip } = pagination
 
     const where: Record<string, unknown> = {}
     if (q) where.OR = [{ title: { contains: q } }, { description: { contains: q } }]
@@ -111,6 +127,11 @@ export async function createMovie(req: Request, res: Response) {
     }
     const { title, description, poster, format, runtime, rating, status, releaseDate, genreIds } = parseResult.data
     const slug = (parseResult.data.slug?.trim()) || slugify(title)
+    if (!slug) return res.status(400).json({ error: "Tên phim phải tạo được slug hợp lệ" })
+    const genreCount = await prisma.genre.count({ where: { id: { in: genreIds } } })
+    if (genreCount !== genreIds.length) {
+      return res.status(400).json({ error: "Có thể loại không tồn tại" })
+    }
 
     if (await prisma.movie.findUnique({ where: { slug } })) {
       return res.status(400).json({ error: "Slug hoặc tên phim này đã tồn tại" })
@@ -147,6 +168,11 @@ export async function updateMovie(req: Request, res: Response) {
 
     const { title, description, poster, format, runtime, rating, status, releaseDate, genreIds } = parseResult.data
     const slug = (parseResult.data.slug?.trim()) || slugify(title)
+    if (!slug) return res.status(400).json({ error: "Tên phim phải tạo được slug hợp lệ" })
+    const genreCount = await prisma.genre.count({ where: { id: { in: genreIds } } })
+    if (genreCount !== genreIds.length) {
+      return res.status(400).json({ error: "Có thể loại không tồn tại" })
+    }
 
     const slugConflict = await prisma.movie.findFirst({ where: { id: { not: id }, slug } })
     if (slugConflict) return res.status(400).json({ error: "Slug này đã bị trùng với phim khác" })

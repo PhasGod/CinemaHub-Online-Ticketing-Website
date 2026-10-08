@@ -68,10 +68,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null)
     try {
       await logoutApi()
-    } catch {
-      // Ignore logout errors
-    } finally {
       setUser(null)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Đăng xuất thất bại"
+      setError(message)
+      throw new Error(message)
     }
   }
 

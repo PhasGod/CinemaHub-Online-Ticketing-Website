@@ -3,6 +3,7 @@ import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { prisma } from "../config/db.js"
 import { AuthRequest } from "../middleware/auth.js"
+import { parsePagination } from "../utils/pagination.js"
 
 const createStaffSchema = z.object({
   email: z.string().email("Email không hợp lệ"),
@@ -33,9 +34,13 @@ export async function getUsers(req: AuthRequest, res: Response) {
   try {
     const q = ((req.query.q || req.query.search) as string | undefined || "").trim()
     const roleFilter = req.query.role as string | undefined
-    const page = Math.max(1, parseInt((req.query.page as string) || "1"))
-    const limit = Math.max(1, Math.min(100, parseInt((req.query.limit as string) || "10")))
-    const skip = (page - 1) * limit
+    let pagination
+    try {
+      pagination = parsePagination(req.query.page, req.query.limit, 10)
+    } catch (err: unknown) {
+      return res.status(400).json({ error: err instanceof Error ? err.message : "Phân trang không hợp lệ" })
+    }
+    const { page, limit, skip } = pagination
 
     const where: Record<string, unknown> = {}
     if (q) {

@@ -9,8 +9,8 @@ router.get("/", getMovies)
 router.get("/:idOrSlug", getMovieByIdOrSlug)
 
 // Protected admin/staff routes
-router.post("/", authenticate, requireRole("admin", "staff"), createMovie)
-router.put("/:id", authenticate, requireRole("admin", "staff"), updateMovie)
-router.delete("/:id", authenticate, requireRole("admin", "staff"), deleteMovie)
+router.post("/", authenticate, requireRole("admin"), createMovie)
+router.put("/:id", authenticate, requireRole("admin"), updateMovie)
+router.delete("/:id", authenticate, requireRole("admin"), deleteMovie)
 
 export default router

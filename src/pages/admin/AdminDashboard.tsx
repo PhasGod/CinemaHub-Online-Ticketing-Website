@@ -26,13 +26,37 @@ function StatCard({ icon, label, value, color }: StatCardProps) {
 export function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
+    let active = true
+
+    setIsLoading(true)
+    setError("")
+
     adminGetStats()
-      .then((res) => setStats(res.stats))
-      .catch(() => {})
-      .finally(() => setIsLoading(false))
-  }, [])
+      .then((res) => {
+        if (active) setStats(res.stats)
+      })
+      .catch((err: unknown) => {
+        if (!active) return
+
+        setStats(null)
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải số liệu tổng quan",
+        )
+      })
+      .finally(() => {
+        if (active) setIsLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [reload])
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -46,6 +70,19 @@ export function AdminDashboard() {
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-blue-600" size={36} />
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <p role="alert" className="mb-4 text-red-700">
+            {error}
+          </p>
+
+          <button
+            className="button button-primary"
+            onClick={() => setReload((value) => value + 1)}
+          >
+            Thử lại
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

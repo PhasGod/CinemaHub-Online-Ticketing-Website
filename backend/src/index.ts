@@ -7,6 +7,7 @@ import userRoutes from "./routes/user.routes.js"
 import genreRoutes from "./routes/genre.routes.js"
 import movieRoutes from "./routes/movie.routes.js"
 import roomRoutes from "./routes/room.routes.js"
+import { csrfProtection } from "./middleware/security.js"
 import statsRoutes from "./routes/stats.routes.js"
 
 dotenv.config()
@@ -15,16 +16,18 @@ const app = express()
 const PORT = process.env.PORT || 5000
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:8443"
 
+const allowedOrigins = [...new Set([CLIENT_URL, "http://localhost:8443", "http://localhost:5173", "http://127.0.0.1:8443", "http://127.0.0.1:5173"])]
+
 // CORS – only allow configured frontend origin
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true) // curl/Postman/server-side
-      const allowed = [CLIENT_URL, "http://localhost:8443", "http://localhost:5173"]
+      const allowed = allowedOrigins
       if (allowed.includes(origin)) {
         callback(null, true)
       } else {
-        callback(new Error(`CORS: Origin ${origin} not allowed`))
+        callback(Object.assign(new Error("Origin không được phép"), { status: 403 }))
       }
     },
     credentials: true,
@@ -34,6 +37,7 @@ app.use(
 app.use(express.json({ limit: "2mb" }))
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
+app.use("/api", csrfProtection(allowedOrigins))
 
 // Health check
 app.get("/api/health", (_req: Request, res: Response) => {
@@ -57,7 +61,8 @@ app.use((req: Request, res: Response) => {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Unhandled Error:", err.message)
-  res.status(500).json({ error: "Lỗi hệ thống máy chủ" })
+  const status = (err as Error & { status?: number }).status
+  res.status(status === 403 ? 403 : 500).json({ error: status === 403 ? "Origin không được phép" : "Lỗi hệ thống máy chủ" })
 })
 
 app.listen(PORT, () => {

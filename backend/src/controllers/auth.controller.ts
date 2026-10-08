@@ -155,19 +155,12 @@ export async function login(req: AuthRequest, res: Response) {
 export async function logout(req: AuthRequest, res: Response) {
   try {
     const token = req.cookies?.session_token || req.headers.authorization?.replace("Bearer ", "")
-
-    if (token) {
-      await prisma.session.deleteMany({
-        where: { token },
-      }).catch(() => {})
-    }
-
+    if (token) await prisma.session.deleteMany({ where: { token } })
     res.clearCookie("session_token", { path: "/" })
     return res.json({ message: "Đăng xuất thành công" })
   } catch (error) {
     console.error("Logout error:", error)
-    res.clearCookie("session_token", { path: "/" })
-    return res.json({ message: "Đăng xuất thành công" })
+    return res.status(503).json({ error: "Chưa thể kết thúc phiên. Vui lòng thử lại." })
   }
 }
 

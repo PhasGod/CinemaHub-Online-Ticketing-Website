@@ -292,27 +292,87 @@ export async function updateSeat(req: Request, res: Response) {
 export async function batchUpdateSeats(req: Request, res: Response) {
   try {
     const roomId = req.params["roomId"] as string
-    const { seatIds, type, isActive } = req.body as { seatIds?: string[]; type?: string; isActive?: boolean }
 
-    if (!Array.isArray(seatIds) || seatIds.length === 0) {
-      return res.status(400).json({ error: "Vui lòng chọn danh sách ghế cần cập nhật" })
+    const schema = z.object({
+      seatIds: z.array(z.string().min(1)).min(1).max(780),
+      type: z.enum(["standard", "vip"]).optional(),
+      isActive: z.boolean().optional(),
+    }).refine(
+      (data) => data.type !== undefined || data.isActive !== undefined,
+      { message: "Vui lòng chọn loại ghế hoặc trạng thái cần cập nhật" },
+    )
+
+    const parsed = schema.safeParse(req.body)
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: parsed.error.errors.map((e) => e.message).join(", "),
+      })
     }
 
-    const updateData: Record<string, unknown> = {}
-    if (type && ["standard", "vip"].includes(type)) updateData.type = type
-    if (typeof isActive === "boolean") updateData.isActive = isActive
+    const { type, isActive } = parsed.data
+    const seatIds = [...new Set(parsed.data.seatIds)]
 
-    const newCapacity = await prisma.$transaction(async (tx) => {
-      await tx.seat.updateMany({ where: { id: { in: seatIds }, roomId }, data: updateData })
-      const activeCount = await tx.seat.count({ where: { roomId, isActive: true } })
-      await tx.room.update({ where: { id: roomId }, data: { capacity: activeCount } })
-      return activeCount
+    const result = await prisma.$transaction(async (tx) => {
+      const room = await tx.room.findUnique({
+        where: { id: roomId },
+      })
+
+      if (!room) {
+        return { ok: false as const, status: 404, error: "Không tìm thấy phòng" }
+      }
+
+      const seats = await tx.seat.findMany({
+        where: { id: { in: seatIds }, roomId },
+        select: { id: true },
+      })
+
+      if (seats.length !== seatIds.length) {
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Có ghế không tồn tại hoặc không thuộc phòng này",
+        }
+      }
+
+      const updated = await tx.seat.updateMany({
+        where: { id: { in: seatIds }, roomId },
+        data: {
+          ...(type !== undefined ? { type } : {}),
+          ...(isActive !== undefined ? { isActive } : {}),
+        },
+      })
+
+      const capacity = await tx.seat.count({
+        where: { roomId, isActive: true },
+      })
+
+      await tx.room.update({
+        where: { id: roomId },
+        data: { capacity },
+      })
+
+      return {
+        ok: true as const,
+        count: updated.count,
+        capacity,
+      }
     })
 
-    return res.json({ message: `Cập nhật thành công ${seatIds.length} ghế`, newRoomCapacity: newCapacity })
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error })
+    }
+
+    return res.json({
+      message: `Cập nhật thành công ${result.count} ghế`,
+      updatedCount: result.count,
+      newRoomCapacity: result.capacity,
+    })
   } catch (error) {
     console.error("Batch update seats error:", error)
-    return res.status(500).json({ error: "Lỗi hệ thống khi cập nhật nhiều ghế" })
+    return res.status(500).json({
+      error: "Lỗi hệ thống khi cập nhật nhiều ghế",
+    })
   }
 }
 

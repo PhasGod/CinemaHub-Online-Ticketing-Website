@@ -23,14 +23,14 @@ router.get("/rooms/:id", getRoomById)
 router.get("/rooms/:roomId/seats", getSeatsByRoom)
 
 // Protected admin/staff routes for room management (US.07)
-router.post("/rooms", authenticate, requireRole("admin", "staff"), createRoom)
-router.put("/rooms/:id", authenticate, requireRole("admin", "staff"), updateRoom)
-router.delete("/rooms/:id", authenticate, requireRole("admin", "staff"), deleteRoom)
+router.post("/rooms", authenticate, requireRole("admin"), createRoom)
+router.put("/rooms/:id", authenticate, requireRole("admin"), updateRoom)
+router.delete("/rooms/:id", authenticate, requireRole("admin"), deleteRoom)
 
 // Protected admin/staff routes for seat layout management (US.08)
-router.post("/rooms/:roomId/seats/generate", authenticate, requireRole("admin", "staff"), generateSeatLayout)
-router.patch("/rooms/:roomId/seats/:seatId", authenticate, requireRole("admin", "staff"), updateSeat)
-router.put("/rooms/:roomId/seats/batch", authenticate, requireRole("admin", "staff"), batchUpdateSeats)
-router.delete("/rooms/:roomId/seats", authenticate, requireRole("admin", "staff"), clearSeatLayout)
+router.post("/rooms/:roomId/seats/generate", authenticate, requireRole("admin"), generateSeatLayout)
+router.patch("/rooms/:roomId/seats/:seatId", authenticate, requireRole("admin"), updateSeat)
+router.put("/rooms/:roomId/seats/batch", authenticate, requireRole("admin"), batchUpdateSeats)
+router.delete("/rooms/:roomId/seats", authenticate, requireRole("admin"), clearSeatLayout)
 
 export default router

@@ -255,7 +255,7 @@ export function AdminSeatsPage() {
                 </div>
 
                 {rowKeys.map((row) => (
-                  <div key={row} className="flex items-center gap-2 mb-2">
+                  <div key={row} className="flex items-center justify-center gap-2 mb-2">
                     <span className="text-xs font-bold text-slate-500 w-5 text-center shrink-0">{row}</span>
                     <div className="flex gap-1.5">
                       {seatsByRow[row].map((seat) => {

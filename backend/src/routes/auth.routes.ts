@@ -2,10 +2,13 @@ import { Router } from "express"
 import { register, login, logout, getMe, updateProfile } from "../controllers/auth.controller.js"
 import { authenticate } from "../middleware/auth.js"
 
-const router = Router()
+import { createAuthLimiter } from "../middleware/security.js"
 
-router.post("/register", register)
-router.post("/login", login)
+const router = Router()
+const authLimiter = createAuthLimiter()
+
+router.post("/register", authLimiter, register)
+router.post("/login", authLimiter, login)
 router.post("/logout", logout)
 router.get("/me", authenticate, getMe)
 router.put("/profile", authenticate, updateProfile)

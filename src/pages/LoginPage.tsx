@@ -12,7 +12,12 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (user) {
-    return <Navigate to={user.role === "admin" || user.role === "staff" ? "/admin" : "/"} replace />
+    return (
+      <Navigate
+        to={user.role === "admin" ? "/admin" : "/"}
+        replace
+      />
+    )
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -21,12 +26,14 @@ export function LoginPage() {
     setIsSubmitting(true)
 
     try {
-      const loggedUser = await login({ email: email.trim(), password })
-      if (loggedUser.role === "admin" || loggedUser.role === "staff") {
-        navigate("/admin")
-      } else {
-        navigate("/")
-      }
+      const loggedUser = await login({
+        email: email.trim(),
+        password,
+      })
+
+      navigate(loggedUser.role === "admin" ? "/admin" : "/", {
+        replace: true,
+      })
     } catch (err: any) {
       setError(err.message || "Đăng nhập thất bại")
     } finally {

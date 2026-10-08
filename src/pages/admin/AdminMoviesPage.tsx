@@ -114,7 +114,7 @@ function MovieModal({
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-semibold text-slate-700 mb-1">Trạng thái</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value)}
+              <select value={status} onChange={(e) => setStatus(e.target.value as "coming_soon" | "showing" | "ended")}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                 <option value="showing">Đang chiếu</option>
                 <option value="coming_soon">Sắp chiếu</option>

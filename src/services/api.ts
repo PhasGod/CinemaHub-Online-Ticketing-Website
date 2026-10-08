@@ -7,6 +7,9 @@ export async function apiFetch<T>(
   const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`
 
   const headers = new Headers(options.headers || {})
+  if (!["GET", "HEAD", "OPTIONS"].includes((options.method || "GET").toUpperCase())) {
+    headers.set("X-CinemaHub-Request", "1")
+  }
   if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json")
   }

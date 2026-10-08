@@ -43,7 +43,7 @@ export function Navbar({ onOpenLogin }: { onOpenLogin: () => void }) {
     ["Trang chủ", "/"],
     ["Phim", "/movies"],
     ["Rạp chiếu", "/cinemas"],
-    ["Suất chiếu", "/showtimes/avengers"],
+    ["Suất chiếu", "/showtimes"],
     ["Khuyến mãi", "/promotions"],
   ]
 
@@ -128,7 +128,9 @@ export function Navbar({ onOpenLogin }: { onOpenLogin: () => void }) {
                   <button
                     onClick={() => {
                       setAccountOpen(false)
-                      logout()
+                      logout().catch((err: unknown) => {
+                        window.alert(err instanceof Error ? err.message : "Đăng xuất thất bại")
+                      })
                     }}
                     className="flex items-center gap-2 text-rose-600 hover:bg-rose-50"
                   >

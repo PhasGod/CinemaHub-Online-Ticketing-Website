@@ -8,8 +8,8 @@ const router = Router()
 router.get("/", getGenres)
 
 // Protected admin/staff routes
-router.post("/", authenticate, requireRole("admin", "staff"), createGenre)
-router.put("/:id", authenticate, requireRole("admin", "staff"), updateGenre)
-router.delete("/:id", authenticate, requireRole("admin", "staff"), deleteGenre)
+router.post("/", authenticate, requireRole("admin"), createGenre)
+router.put("/:id", authenticate, requireRole("admin"), updateGenre)
+router.delete("/:id", authenticate, requireRole("admin"), deleteGenre)
 
 export default router
