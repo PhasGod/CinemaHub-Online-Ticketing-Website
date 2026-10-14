@@ -1,0 +1,62 @@
+CHAY UNG DUNG 5TOP CINEMA
+=========================
+
+Thu muc du an:
+D:\ThietKePhanMem\CinemaHub-Online-Ticketing-Website-main
+
+CHI CAN LAM NHU SAU:
+
+BUOC 1 - BAT MYSQL
+------------------
+Mo MySQL Workbench -> ket noi localhost -> mo file Cinema.sql trong thu muc
+du an -> bam Run.
+
+Sau khi chay, phai co 2 database:
+- cinemahub_db
+- cinemahub_shadow
+
+BUOC 2 - KIEM TRA FILE backend\.env
+-----------------------------------
+Mo file:
+D:\ThietKePhanMem\CinemaHub-Online-Ticketing-Website-main\backend\.env
+
+Neu chua co file nay: copy backend\.env.example va doi ten thanh .env.
+
+Noi dung can dung:
+
+DATABASE_URL="mysql://cinemahub_user:MatKhauApp@localhost:3306/cinemahub_db"
+SHADOW_DATABASE_URL="mysql://cinemahub_user:MatKhauApp@localhost:3306/cinemahub_shadow"
+PORT=3000
+CLIENT_URL="http://localhost:8443"
+NODE_ENV="development"
+
+BUOC 3 - CHAY BACKEND (POWERSHELL THU 1)
+-----------------------------------------
+
+cd "D:\ThietKePhanMem\CinemaHub-Online-Ticketing-Website-main\backend"
+npm install
+npm run prisma:generate
+npm run prisma:migrate -- --name sprint1
+npm run seed
+npm run dev
+
+Khong dong cua so nay.
+
+BUOC 4 - CHAY FRONTEND (POWERSHELL THU 2)
+------------------------------------------
+
+cd "D:\ThietKePhanMem\CinemaHub-Online-Ticketing-Website-main"
+npm install
+npm run dev
+
+BUOC 5 - MO UNG DUNG
+--------------------
+
+Mo trinh duyet va vao:
+http://localhost:8443
+
+TAI KHOAN DEMO
+--------------
+admin@5top.vn / 123456
+
+Khi muon dung ung dung: bam Ctrl + C trong ca 2 cua so PowerShell.
