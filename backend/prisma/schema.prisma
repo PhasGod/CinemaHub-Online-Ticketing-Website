@@ -25,6 +25,36 @@ enum SeatType {
   vip
 }
 
+enum ShowtimeStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum ShowtimeSeatStatus {
+  AVAILABLE
+  HELD
+  BOOKED
+}
+
+enum BookingStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TicketStatus {
+  VALID
+  USED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
@@ -36,6 +66,7 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   sessions     Session[]
+  bookings     Booking[]
 
   @@map("users")
 }
@@ -63,21 +94,22 @@ model Genre {
 }
 
 model Movie {
-  id          String       @id @default(uuid())
-  title       String
-  slug        String       @unique
-  description String?      @db.Text
+  id               String       @id @default(uuid())
+  title            String
+  slug             String       @unique
+  description      String?      @db.Text
   // CDN/Facebook poster URLs frequently exceed MySQL's default VARCHAR(191).
-  poster      String?      @db.Text
-  trailerYoutubeId String? @db.VarChar(20)
-  format      String       @default("2D")
-  runtime     Int          @default(120) // Runtime in minutes
-  rating      Float        @default(0.0)
-  status      MovieStatus  @default(showing)
-  releaseDate DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  genres      MovieGenre[]
+  poster           String?      @db.Text
+  trailerYoutubeId String?      @db.VarChar(20)
+  format           String       @default("2D")
+  runtime          Int          @default(120) // Runtime in minutes
+  rating           Float        @default(0.0)
+  status           MovieStatus  @default(showing)
+  releaseDate      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  genres           MovieGenre[]
+  showtimes        Showtime[]
 
   @@map("movies")
 }
@@ -105,31 +137,119 @@ model Cinema {
 }
 
 model Room {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   cinemaId  String
   name      String
-  format    String   @default("2D")
-  capacity  Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  cinema    Cinema   @relation(fields: [cinemaId], references: [id], onDelete: Cascade)
+  format    String     @default("2D")
+  capacity  Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  cinema    Cinema     @relation(fields: [cinemaId], references: [id], onDelete: Cascade)
   seats     Seat[]
+  showtimes Showtime[]
 
   @@unique([cinemaId, name])
   @@map("rooms")
 }
 
 model Seat {
-  id        String   @id @default(uuid())
-  roomId    String
-  row       String
-  number    Int
-  type      SeatType @default(standard)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  id            String         @id @default(uuid())
+  roomId        String
+  row           String
+  number        Int
+  type          SeatType       @default(standard)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  room          Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  showtimeSeats ShowtimeSeat[]
+  tickets       Ticket[]
 
   @@unique([roomId, row, number])
   @@map("seats")
+}
+
+model Showtime {
+  id            String         @id @default(uuid())
+  movieId       String
+  roomId        String
+  startTime     DateTime
+  endTime       DateTime
+  price         Decimal        @db.Decimal(10, 2)
+  status        ShowtimeStatus @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  movie         Movie          @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  room          Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  showtimeSeats ShowtimeSeat[]
+  tickets       Ticket[]
+
+  @@map("showtimes")
+}
+
+model ShowtimeSeat {
+  id            String             @id @default(uuid())
+  showtimeId    String
+  seatId        String
+  status        ShowtimeSeatStatus @default(AVAILABLE)
+  holdExpiresAt DateTime?
+  heldByUserId  String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  showtime      Showtime           @relation(fields: [showtimeId], references: [id], onDelete: Cascade)
+  seat          Seat               @relation(fields: [seatId], references: [id], onDelete: Cascade)
+
+  @@index([showtimeId, seatId])
+  @@index([status, holdExpiresAt])
+  @@map("showtime_seats")
+}
+
+model Booking {
+  id          String        @id @default(uuid())
+  userId      String
+  bookingCode String        @unique @db.VarChar(50)
+  bookingDate DateTime      @default(now())
+  totalAmount Decimal       @db.Decimal(10, 2)
+  status      BookingStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tickets     Ticket[]
+  payment     Payment?
+
+  @@map("bookings")
+}
+
+model Ticket {
+  id          String       @id @default(uuid())
+  bookingId   String
+  showtimeId  String
+  seatId      String
+  ticketCode  String       @unique @db.VarChar(100)
+  qrCode      String       @db.Text
+  price       Decimal      @db.Decimal(10, 2)
+  status      TicketStatus @default(VALID)
+  checkedInAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  showtime    Showtime     @relation(fields: [showtimeId], references: [id], onDelete: Cascade)
+  seat        Seat         @relation(fields: [seatId], references: [id], onDelete: Cascade)
+
+  @@map("tickets")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  bookingId       String        @unique
+  transactionCode String        @db.VarChar(100)
+  amount          Decimal       @db.Decimal(10, 2)
+  method          String        @default("MOCK") @db.VarChar(50)
+  status          PaymentStatus @default(PENDING)
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
 }

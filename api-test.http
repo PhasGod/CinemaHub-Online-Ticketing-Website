@@ -1,0 +1,11 @@
+### CNM-5 — Đăng ký tài khoản khách hàng
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+X-CinemaHub-Request: 1
+
+{
+  "email": "minhchung.cnm5.20261009@5top.vn",
+  "password": "123456",
+  "fullName": "Khách hàng minh chứng CNM-5",
+  "phone": "0900000000"
+}
