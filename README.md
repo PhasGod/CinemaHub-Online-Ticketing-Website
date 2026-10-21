@@ -13,9 +13,7 @@ Dùng MySQL 8, Node.js và npm. Backend hiện dùng cổng 3000, frontend 8443.
 ```powershell
 cd backend
 npm install
-npm run prisma:generate
-npm run prisma:migrate -- --name sprint1
-npm run seed
+npm run db:setup
 npm test
 npm run dev
 ```
@@ -30,6 +28,10 @@ npm run dev
 Mở http://localhost:8443. Kiểm tra http://localhost:3000/api/health và http://localhost:8443/api/health. Cổng backend trong `.env` phải khớp target trong `vite.config.ts`.
 
 Tài khoản demo: admin@5top.vn, staff@5top.vn, user@5top.vn; mật khẩu ban đầu 123456. Seed giữ mật khẩu và dữ liệu phim đã tồn tại.
+
+### Giữ dữ liệu khi cập nhật từ GitHub
+
+GitHub chỉ lưu mã nguồn; dữ liệu do quản trị viên nhập được lưu trong MySQL. Sau `git pull`, chạy `npm run db:setup` trong thư mục `backend` để áp dụng migration và khôi phục dữ liệu mặc định còn thiếu. Lệnh này không ghi đè thông tin phim đã được chỉnh sửa trong trang Quản trị và không xóa phim do quản trị viên tự tạo.
 
 ## Bảo vệ API
 

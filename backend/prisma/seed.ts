@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
+import { legacyMovieSlugs, managedMoviesData } from "./movieSeedData.js"
 
 const prisma = new PrismaClient()
 
@@ -60,6 +61,12 @@ async function main() {
     { name: "Tâm lý", slug: "tam-ly" },
     { name: "Hài hước", slug: "hai-huoc" },
     { name: "Kinh dị", slug: "kinh-di" },
+    { name: "Hoạt hình", slug: "hoat-hinh" },
+    { name: "Gia đình", slug: "gia-dinh" },
+    { name: "Âm nhạc", slug: "am-nhac" },
+    { name: "Chính kịch", slug: "chinh-kich" },
+    { name: "Bí ẩn", slug: "bi-an" },
+    { name: "Kỳ ảo", slug: "ky-ao" },
   ]
 
   const createdGenres: Record<string, string> = {}
@@ -74,7 +81,8 @@ async function main() {
   console.log("Seeded Genres count:", Object.keys(createdGenres).length)
 
   // 3. Seed Movies - Danh sách phim chiếu rạp bom tấn 2026
-  const moviesData = [
+  // Giữ lại mảng cũ để nhận biết dữ liệu mẫu trước đây. Nó không còn được seed.
+  const legacyMoviesData = [
     {
       title: "Avengers: Doomsday (2026)",
       slug: "avengers-doomsday",
@@ -209,31 +217,44 @@ async function main() {
     },
   ]
 
+  // Chỉ xóa những slug dữ liệu mẫu cũ, không động vào phim do quản trị viên tạo.
+  await prisma.movie.deleteMany({ where: { slug: { in: legacyMovieSlugs } } })
+
+  const legacyTitlesToUpgrade = new Set([
+    "Avengers: Doomsday (2026)",
+    "Dune: Hành Tinh Cát 2",
+    "Inside Out 2 (3D 2026)",
+    "Hành Trình Của Moana 2 (Moana 2)",
+  ])
+  const moviesData = managedMoviesData
+
   for (const mData of moviesData) {
     const { genreSlugs, ...movieInfo } = mData
+    const existingMovie = await prisma.movie.findUnique({
+      where: { slug: movieInfo.slug },
+      select: { id: true, title: true },
+    })
+    const needsLegacyUpgrade = Boolean(existingMovie && legacyTitlesToUpgrade.has(existingMovie.title))
     const movie = await prisma.movie.upsert({
       where: { slug: movieInfo.slug },
-      update: {},
+      // Sau lần nâng cấp này, cơ sở dữ liệu là nguồn dữ liệu chính.
+      // Không ghi đè các thay đổi thực hiện tại trang quản trị.
+      update: needsLegacyUpgrade ? movieInfo : {},
       create: movieInfo,
     })
 
-    // Connect Genres
-    for (const slug of genreSlugs) {
-      const genreId = createdGenres[slug]
-      if (genreId) {
-        await prisma.movieGenre.upsert({
-          where: {
-            movieId_genreId: {
-              movieId: movie.id,
-              genreId,
-            },
-          },
-          update: {},
-          create: {
-            movieId: movie.id,
-            genreId,
-          },
-        })
+    // Chỉ đặt thể loại mặc định cho phim mới hoặc dữ liệu mẫu cũ.
+    if (!existingMovie || needsLegacyUpgrade) {
+      await prisma.movieGenre.deleteMany({ where: { movieId: movie.id } })
+      for (const slug of genreSlugs) {
+        const genreId = createdGenres[slug]
+        if (genreId) {
+          await prisma.movieGenre.upsert({
+            where: { movieId_genreId: { movieId: movie.id, genreId } },
+            update: {},
+            create: { movieId: movie.id, genreId },
+          })
+        }
       }
     }
   }

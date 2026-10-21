@@ -9,7 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: cinemahub_db
       MYSQL_USER: cinemahub_user
-      MYSQL_PASSWORD: cinemahub_pass
+      MYSQL_PASSWORD: MatKhauApp
     ports:
       - "3306:3306"
     volumes:

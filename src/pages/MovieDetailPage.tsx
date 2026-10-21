@@ -1,5 +1,7 @@
+import { Play } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
+import { TrailerModal, type MovieCardData } from "../components/MovieCard"
 import {
     adminGetMovie,
     type Movie,
@@ -10,6 +12,7 @@ export default function MovieDetailPage() {
     const [movie, setMovie] = useState<Movie | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
+    const [trailerMovie, setTrailerMovie] = useState<MovieCardData | null>(null)
 
     useEffect(() => {
         let active = true
@@ -101,6 +104,19 @@ export default function MovieDetailPage() {
                             <p className="whitespace-pre-line leading-7">
                                 {movie.description || "Chưa có mô tả."}
                             </p>
+                            {movie.trailerYoutubeId && (
+                                <button type="button"
+                                    onClick={() => setTrailerMovie({
+                                        id: movie.id, title: movie.title, posterUrl: movie.poster || "",
+                                        ageRating: "T13", badgeType: "2D",
+                                        genres: movie.genres.map((genre) => genre.name).join(", "),
+                                        duration: `${movie.runtime} phút`, releaseDate: movie.releaseDate || "",
+                                        trailerYoutubeId: movie.trailerYoutubeId,
+                                    })}
+                                    className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700">
+                                    <Play size={17} fill="currentColor" /> Xem trailer
+                                </button>
+                            )}
                             <p className="mt-6 rounded-xl bg-blue-50 p-4 text-sm text-blue-700">
                                 Chức năng suất chiếu và đặt vé sẽ được triển khai ở sprint tiếp theo.
                             </p>
@@ -110,6 +126,7 @@ export default function MovieDetailPage() {
                     <p>Không tìm thấy phim.</p>
                 )}
             </section>
+            <TrailerModal movie={trailerMovie} onClose={() => setTrailerMovie(null)} />
         </main>
     )
 }

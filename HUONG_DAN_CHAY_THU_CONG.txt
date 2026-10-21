@@ -35,9 +35,7 @@ BUOC 3 - CHAY BACKEND (POWERSHELL THU 1)
 
 cd "D:\ThietKePhanMem\CinemaHub-Online-Ticketing-Website-main\backend"
 npm install
-npm run prisma:generate
-npm run prisma:migrate -- --name sprint1
-npm run seed
+npm run db:setup
 npm run dev
 
 Khong dong cua so nay.
@@ -60,3 +58,9 @@ TAI KHOAN DEMO
 admin@5top.vn / 123456
 
 Khi muon dung ung dung: bam Ctrl + C trong ca 2 cua so PowerShell.
+
+LUU Y VE DU LIEU
+----------------
+- GitHub chi luu ma nguon, khong luu cac dong du lieu trong MySQL.
+- Sau khi pull code moi, chay "npm run db:setup". Lenh nay ap dung migration,
+  them du lieu mac dinh con thieu va KHONG ghi de phim da duoc chinh sua trong Quan tri.

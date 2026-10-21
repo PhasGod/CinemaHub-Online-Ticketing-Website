@@ -67,7 +67,9 @@ model Movie {
   title       String
   slug        String       @unique
   description String?      @db.Text
-  poster      String?
+  // CDN/Facebook poster URLs frequently exceed MySQL's default VARCHAR(191).
+  poster      String?      @db.Text
+  trailerYoutubeId String? @db.VarChar(20)
   format      String       @default("2D")
   runtime     Int          @default(120) // Runtime in minutes
   rating      Float        @default(0.0)

@@ -20,6 +20,7 @@ const movieSchema = z.object({
   slug: z.string().optional(),
   description: z.string().optional().nullable(),
   poster: z.string().optional().nullable(),
+  trailerYoutubeId: z.string().trim().max(2048, "Liên kết trailer quá dài").optional().nullable(),
   format: z.string().default("2D"),
   runtime: z.number().int().positive("Thời lượng phim phải là số dương").default(120),
   rating: z.number().min(0).max(10).default(0.0),
@@ -35,6 +36,30 @@ const movieSchema = z.object({
     .optional().default([]),
 })
 
+function normalizeYoutubeTrailer(value?: string | null): string | null {
+  const trailer = value?.trim()
+  if (!trailer) return null
+  if (/^[A-Za-z0-9_-]{11}$/.test(trailer)) return trailer
+
+  try {
+    const url = new URL(trailer)
+    const host = url.hostname.toLowerCase().replace(/^www\./, "")
+    let videoId = ""
+    if (host === "youtu.be") videoId = url.pathname.split("/").filter(Boolean)[0] || ""
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (url.pathname === "/watch") videoId = url.searchParams.get("v") || ""
+      else {
+        const [segment, id] = url.pathname.split("/").filter(Boolean)
+        if (["embed", "shorts", "live"].includes(segment)) videoId = id || ""
+      }
+    }
+    if (/^[A-Za-z0-9_-]{11}$/.test(videoId)) return videoId
+  } catch {
+    // Return the friendly validation message below.
+  }
+  throw new Error("Trailer phải là liên kết YouTube hợp lệ hoặc mã video gồm 11 ký tự")
+}
+
 const movieIncludes = {
   genres: { include: { genre: true } },
 }
@@ -46,6 +71,7 @@ function formatMovie(m: any) {
     slug: m.slug,
     description: m.description,
     poster: m.poster,
+    trailerYoutubeId: m.trailerYoutubeId,
     format: m.format,
     runtime: m.runtime,
     rating: m.rating,
@@ -125,7 +151,10 @@ export async function createMovie(req: Request, res: Response) {
     if (!parseResult.success) {
       return res.status(400).json({ error: parseResult.error.errors.map((e) => e.message).join(", ") })
     }
-    const { title, description, poster, format, runtime, rating, status, releaseDate, genreIds } = parseResult.data
+    const { title, description, poster, trailerYoutubeId: trailerInput, format, runtime, rating, status, releaseDate, genreIds } = parseResult.data
+    let trailerYoutubeId: string | null
+    try { trailerYoutubeId = normalizeYoutubeTrailer(trailerInput) }
+    catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "Trailer không hợp lệ" }) }
     const slug = (parseResult.data.slug?.trim()) || slugify(title)
     if (!slug) return res.status(400).json({ error: "Tên phim phải tạo được slug hợp lệ" })
     const genreCount = await prisma.genre.count({ where: { id: { in: genreIds } } })
@@ -142,6 +171,7 @@ export async function createMovie(req: Request, res: Response) {
         title, slug,
         description: description || null,
         poster: poster || null,
+        trailerYoutubeId,
         format, runtime, rating, status,
         releaseDate: releaseDate ? new Date(releaseDate) : null,
         genres: { create: genreIds.map((genreId) => ({ genreId })) },
@@ -166,7 +196,10 @@ export async function updateMovie(req: Request, res: Response) {
       return res.status(404).json({ error: "Không tìm thấy phim" })
     }
 
-    const { title, description, poster, format, runtime, rating, status, releaseDate, genreIds } = parseResult.data
+    const { title, description, poster, trailerYoutubeId: trailerInput, format, runtime, rating, status, releaseDate, genreIds } = parseResult.data
+    let trailerYoutubeId: string | null
+    try { trailerYoutubeId = normalizeYoutubeTrailer(trailerInput) }
+    catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "Trailer không hợp lệ" }) }
     const slug = (parseResult.data.slug?.trim()) || slugify(title)
     if (!slug) return res.status(400).json({ error: "Tên phim phải tạo được slug hợp lệ" })
     const genreCount = await prisma.genre.count({ where: { id: { in: genreIds } } })
@@ -185,6 +218,7 @@ export async function updateMovie(req: Request, res: Response) {
           title, slug,
           description: description || null,
           poster: poster || null,
+          trailerYoutubeId,
           format, runtime, rating, status,
           releaseDate: releaseDate ? new Date(releaseDate) : null,
           genres: { create: genreIds.map((genreId) => ({ genreId })) },

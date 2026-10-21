@@ -36,6 +36,7 @@ function MovieModal({
   const [title, setTitle] = useState(editMovie?.title || "")
   const [description, setDescription] = useState(editMovie?.description || "")
   const [poster, setPoster] = useState(editMovie?.poster || "")
+  const [trailerYoutubeId, setTrailerYoutubeId] = useState(editMovie?.trailerYoutubeId || "")
   const [format, setFormat] = useState(editMovie?.format || "2D")
   const [runtime, setRuntime] = useState(editMovie?.runtime || 120)
   const [rating, setRating] = useState(editMovie?.rating || 0)
@@ -59,7 +60,7 @@ function MovieModal({
     if (selectedGenreIds.length === 0) { setError("Vui lòng chọn ít nhất một thể loại"); return }
     setIsLoading(true)
     const data = {
-      title, description: description || undefined, poster: poster || undefined,
+      title, description: description || undefined, poster: poster || undefined, trailerYoutubeId: trailerYoutubeId || undefined,
       format, runtime: Number(runtime), rating: Number(rating), status,
       releaseDate: releaseDate || undefined, genreIds: selectedGenreIds,
     }
@@ -89,6 +90,13 @@ function MovieModal({
               <label className="block text-sm font-semibold text-slate-700 mb-1">Poster URL</label>
               <input value={poster} onChange={(e) => setPoster(e.target.value)} placeholder="https://..."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Trailer YouTube</label>
+              <input value={trailerYoutubeId} onChange={(e) => setTrailerYoutubeId(e.target.value)}
+                placeholder="Dán link YouTube, ví dụ: https://www.youtube.com/watch?v=..."
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <p className="mt-1 text-xs text-slate-500">Hỗ trợ youtube.com, youtu.be và mã video YouTube gồm 11 ký tự.</p>
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Định dạng</label>

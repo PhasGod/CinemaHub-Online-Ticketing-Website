@@ -90,6 +90,7 @@ export interface Movie {
   slug: string
   description: string | null
   poster: string | null
+  trailerYoutubeId: string | null
   format: string
   runtime: number
   rating: number
@@ -122,6 +123,7 @@ export async function adminCreateMovie(data: {
   title: string
   description?: string
   poster?: string
+  trailerYoutubeId?: string
   format: string
   runtime: number
   rating: number
@@ -138,6 +140,7 @@ export async function adminUpdateMovie(
     title: string
     description?: string
     poster?: string
+    trailerYoutubeId?: string
     format: string
     runtime: number
     rating: number
