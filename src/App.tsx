@@ -1,14 +1,35 @@
 import { AdminDashboard } from "./pages/admin/AdminDashboard"
+
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage"
+
 import { AdminGenresPage } from "./pages/admin/AdminGenresPage"
+
 import { AdminMoviesPage } from "./pages/admin/AdminMoviesPage"
+
 import { AdminRoomsPage } from "./pages/admin/AdminRoomsPage"
+
 import { AdminSeatsPage } from "./pages/admin/AdminSeatsPage"
+import AdminShowtimesPage from "./pages/admin/AdminShowtimesPage"
+import ShowtimePage from "./pages/ShowtimePage"
+import SeatSelectionPage from "./pages/SeatSelectionPage"
+import CheckoutPage from "./pages/CheckoutPage"
+import MyTicketsPage from "./pages/MyTicketsPage"
+import { StaffLayout } from "./components/staff/StaffLayout"
+import StaffDashboardPage from "./pages/staff/StaffDashboardPage"
+import StaffCheckInPage from "./pages/staff/StaffCheckInPage"
+import StaffTicketLookupPage from "./pages/staff/StaffTicketLookupPage"
+import StaffShowtimesPage from "./pages/staff/StaffShowtimesPage"
+
 import { type FormEvent, useState, useEffect } from "react"
+
 import MoviesFromDatabasePage from "./pages/MoviesPage"
+
 import MovieDetailFromDatabasePage from "./pages/MovieDetailPage"
+
 import CinemaHomePage from "./pages/CinemaHomePage"
+
 import BookingUnavailablePage from "./pages/BookingUnavailablePage"
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -38,148 +59,265 @@ import {
   X,
   Zap,
 } from "lucide-react"
+
 import {
   BrowserRouter,
   Link,
   NavLink,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom"
+
 import { AuthProvider, useAuth } from "./context/AuthContext"
+
 import { Navbar } from "./components/Navbar"
+
 import { AuthModal } from "./components/AuthModal"
+
 import { ProfilePage } from "./pages/ProfilePage"
+
 import { LoginPage } from "./pages/LoginPage"
+
 import { ProtectedRoute } from "./components/ProtectedRoute"
 
 const photos = {
   hero: "https://media.themoviedb.org/t/p/w780/eZ239CUp1d6OryZEBPnO2n87gMG.jpg",
+
   giant: "https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg",
+
   city: "https://media.themoviedb.org/t/p/w500/6izwz7rsy95ARzTR3poZ8H6c5pp.jpg",
+
   galaxy: "https://image.tmdb.org/t/p/w500/vpnVM9B6NMmQpWeZvzLvDESb2QY.jpg",
-  scooter: "https://upload.wikimedia.org/wikipedia/vi/d/d4/%C3%81p_ph%C3%ADch_ch%C3%ADnh_th%E1%BB%A9c_L%E1%BA%ADt_m%E1%BA%B7t_7.jpg",
+
+  scooter:
+    "https://upload.wikimedia.org/wikipedia/vi/d/d4/%C3%81p_ph%C3%ADch_ch%C3%ADnh_th%E1%BB%A9c_L%E1%BA%ADt_m%E1%BA%B7t_7.jpg",
+
   cinema: "https://upload.wikimedia.org/wikipedia/vi/3/36/Mai_2024_poster.jpg",
+
   marquee: "https://image.tmdb.org/t/p/w500/1DTP1Ph4uzNO6ofRUm7eAimWoKD.jpg",
 }
 
 const movies = [
   {
     id: "avengers-doomsday",
+
     title: "Avengers: Doomsday (2026)",
+
     genre: "Hành động, Siêu anh hùng",
+
     runtime: "2h 40m",
+
     rating: 9.3,
+
     image: "https://image.tmdb.org/t/p/w500/jjD5dcWFusnlrz8HzlZQIPM1Xal.jpg",
+
     format: "IMAX",
-    description: "Sự trở lại chấn động của Robert Downey Jr. trong vai phản diện Doctor Doom, dẫn đầu cuộc chiến đa vũ trụ chống lại biệt đội Avengers thế hệ mới.",
+
+    description:
+      "Sự trở lại chấn động của Robert Downey Jr. trong vai phản diện Doctor Doom, dẫn đầu cuộc chiến đa vũ trụ chống lại biệt đội Avengers thế hệ mới.",
   },
+
   {
     id: "the-mandalorian-and-grogu",
+
     title: "The Mandalorian & Grogu (2026)",
+
     genre: "Khoa học viễn tưởng, Phiêu lưu",
+
     runtime: "2h 15m",
+
     rating: 9.0,
+
     image: "https://image.tmdb.org/t/p/w500/iBokRdkd1jcBeU0fASO8Vtk25TO.jpg",
+
     format: "IMAX",
-    description: "Bộ phim điện ảnh hoành tráng của vũ trụ Star Wars theo chân Din Djarin và chú nhóc Grogu trong nhiệm vụ giải cứu dải ngân hà năm 2026.",
+
+    description:
+      "Bộ phim điện ảnh hoành tráng của vũ trụ Star Wars theo chân Din Djarin và chú nhóc Grogu trong nhiệm vụ giải cứu dải ngân hà năm 2026.",
   },
+
   {
     id: "lat-mat-8",
+
     title: "Lật Mặt 8: Vòng Xoáy Định Mệnh (2026)",
+
     genre: "Hành động, Gia đình",
+
     runtime: "2h 20m",
+
     rating: 9.1,
-    image: "https://upload.wikimedia.org/wikipedia/vi/d/d4/%C3%81p_ph%C3%ADch_ch%C3%ADnh_th%E1%BB%A9c_L%E1%BA%ADt_m%E1%BA%B7t_7.jpg",
+
+    image:
+      "https://upload.wikimedia.org/wikipedia/vi/d/d4/%C3%81p_ph%C3%ADch_ch%C3%ADnh_th%E1%BB%A9c_L%E1%BA%ADt_m%E1%BA%B7t_7.jpg",
+
     format: "2D",
-    description: "Phần phim thứ 8 trong chuỗi thương hiệu bom tấn ăn khách nhất lịch sử điện ảnh Việt Nam của đạo diễn Lý Hải ra mắt năm 2026.",
+
+    description:
+      "Phần phim thứ 8 trong chuỗi thương hiệu bom tấn ăn khách nhất lịch sử điện ảnh Việt Nam của đạo diễn Lý Hải ra mắt năm 2026.",
   },
+
   {
     id: "deadpool-and-wolverine",
+
     title: "Deadpool & Wolverine (IMAX 2026)",
+
     genre: "Hành động, Hài hước",
+
     runtime: "2h 08m",
+
     rating: 8.9,
+
     image: "https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg",
+
     format: "IMAX",
-    description: "Phiên bản đặc biệt tái xuất rạp chiếu 2026 của bộ đôi dị nhân lầy lội nhất vũ trụ điện ảnh Marvel.",
+
+    description:
+      "Phiên bản đặc biệt tái xuất rạp chiếu 2026 của bộ đôi dị nhân lầy lội nhất vũ trụ điện ảnh Marvel.",
   },
+
   {
     id: "dune-part-two",
+
     title: "Dune: Hành Tinh Cát 2",
+
     genre: "Khoa học viễn tưởng",
+
     runtime: "2h 46m",
+
     rating: 9.2,
-    image: "https://media.themoviedb.org/t/p/w500/6izwz7rsy95ARzTR3poZ8H6c5pp.jpg",
+
+    image:
+      "https://media.themoviedb.org/t/p/w500/6izwz7rsy95ARzTR3poZ8H6c5pp.jpg",
+
     format: "IMAX",
-    description: "Paul Atreides hợp lực cùng Chani và tộc người Fremen để trả thù những kẻ đã hủy diệt gia tộc mình, đối mặt với sự lựa chọn định mệnh của vũ trụ.",
+
+    description:
+      "Paul Atreides hợp lực cùng Chani và tộc người Fremen để trả thù những kẻ đã hủy diệt gia tộc mình, đối mặt với sự lựa chọn định mệnh của vũ trụ.",
   },
+
   {
     id: "mai-tran-thanh",
+
     title: "Mai (Bản Tri Ân 2026)",
+
     genre: "Tâm lý, Tình cảm",
+
     runtime: "2h 11m",
+
     rating: 8.7,
+
     image: "https://upload.wikimedia.org/wikipedia/vi/3/36/Mai_2024_poster.jpg",
+
     format: "2D",
-    description: "Tác phẩm điện ảnh kỷ lục 500 tỷ của Trấn Thành xoay quanh số phận của Mai và mối tình nhiều trắc trở với Dương.",
+
+    description:
+      "Tác phẩm điện ảnh kỷ lục 500 tỷ của Trấn Thành xoay quanh số phận của Mai và mối tình nhiều trắc trở với Dương.",
   },
+
   {
     id: "inside-out-2",
+
     title: "Inside Out 2 (3D 2026)",
+
     genre: "Hoạt hình, Hài hước",
+
     runtime: "1h 36m",
+
     rating: 9.0,
+
     image: "https://image.tmdb.org/t/p/w500/vpnVM9B6NMmQpWeZvzLvDESb2QY.jpg",
+
     format: "3D",
-    description: "Riley bước vào tuổi dậy thì với những cảm xúc mới: Lo Âu (Anxiety), Ganh Tị, Xấu Hổ và Chán Nản.",
+
+    description:
+      "Riley bước vào tuổi dậy thì với những cảm xúc mới: Lo Âu (Anxiety), Ganh Tị, Xấu Hổ và Chán Nản.",
   },
+
   {
     id: "godzilla-x-kong-the-new-empire",
+
     title: "Godzilla x Kong: Đế Chế Mới",
+
     genre: "Hành động, Viễn tưởng",
+
     runtime: "1h 55m",
+
     rating: 8.6,
+
     image: "https://image.tmdb.org/t/p/w500/1DTP1Ph4uzNO6ofRUm7eAimWoKD.jpg",
+
     format: "IMAX",
-    description: "Hai quái thú huyền thoại Godzilla và Kong phải hợp sức chống lại mối đe dọa khổng lồ ẩn sâu dưới Trái Đất.",
+
+    description:
+      "Hai quái thú huyền thoại Godzilla và Kong phải hợp sức chống lại mối đe dọa khổng lồ ẩn sâu dưới Trái Đất.",
   },
 ]
 
 const upcoming = [
   {
     id: "avengers-secret-wars",
+
     title: "Avengers: Secret Wars (2026)",
+
     genre: "Hành động, Siêu anh hùng",
+
     runtime: "2h 45m",
+
     rating: 9.4,
+
     image: "https://image.tmdb.org/t/p/w500/jjD5dcWFusnlrz8HzlZQIPM1Xal.jpg",
+
     format: "IMAX",
+
     date: "18.12.2026",
-    description: "Trận chiến đa vũ trụ lớn nhất trong lịch sử điện ảnh Marvel, quy tụ tất cả các siêu anh hùng qua mọi thời đại.",
+
+    description:
+      "Trận chiến đa vũ trụ lớn nhất trong lịch sử điện ảnh Marvel, quy tụ tất cả các siêu anh hùng qua mọi thời đại.",
   },
+
   {
     id: "gladiator-2",
+
     title: "Võ Sĩ Giác Đấu 2 (Gladiator II)",
+
     genre: "Hành động, Sử thi",
+
     runtime: "2h 28m",
+
     rating: 8.8,
+
     image: "https://image.tmdb.org/t/p/w500/2cxhvwyEwRlysAmRH4iodkvo0z5.jpg",
+
     format: "IMAX",
+
     date: "22.10.2026",
-    description: "Sau nhiều năm chứng kiến Maximus gục ngã, Lucius phải bước vào đấu trường La Mã để tìm lại danh dự và vận mệnh.",
+
+    description:
+      "Sau nhiều năm chứng kiến Maximus gục ngã, Lucius phải bước vào đấu trường La Mã để tìm lại danh dự và vận mệnh.",
   },
+
   {
     id: "moana-2",
+
     title: "Hành Trình Của Moana 2",
+
     genre: "Hoạt hình, Âm nhạc",
+
     runtime: "1h 40m",
+
     rating: 8.7,
+
     image: "https://image.tmdb.org/t/p/w500/aLVkiINlIeCkcZIzb7XHzPYgO6L.jpg",
+
     format: "3D",
+
     date: "27.11.2026",
-    description: "Moana nhận được lời kêu gọi bất ngờ từ tổ tiên và dấn thân vào chuyến hải trình nguy hiểm đến vùng biển xa xôi.",
+
+    description:
+      "Moana nhận được lời kêu gọi bất ngờ từ tổ tiên và dấn thân vào chuyến hải trình nguy hiểm đến vùng biển xa xôi.",
   },
 ]
 
@@ -188,24 +326,35 @@ const cn = (...names: Array<string | false | null | undefined>) =>
 
 type ShowtimeSelection = {
   movie: string
+
   cinema: string
+
   date: string
+
   time: string
+
   format: string
 }
 
 const defaultShowtime: ShowtimeSelection = {
   movie: "Avengers: Secret Wars",
+
   cinema: "5TOP CINEMA Biên Hòa",
+
   date: "26/09",
+
   time: "10:00",
+
   format: "2D Phụ đề",
 }
 
 function Button({
   children,
+
   variant = "primary",
+
   className = "",
+
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "dark"
@@ -232,14 +381,17 @@ function Brand({ compact = false }: { compact?: boolean }) {
   )
 }
 
-
 function SectionTitle({
   title,
+
   link,
+
   to = "/movies",
 }: {
   title: string
+
   link?: string
+
   to?: string
 }) {
   return (
@@ -259,12 +411,15 @@ function SectionTitle({
 
 function MovieCard({
   movie,
+
   upcomingMode = false,
 }: {
   movie: typeof movies[number] & { date?: string }
+
   upcomingMode?: boolean
 }) {
   const navigate = useNavigate()
+
   return (
     <article className="movie-card">
       <Link to={`/movies/${movie.id}`} className="poster-wrap">
@@ -318,9 +473,14 @@ function MovieCard({
 
 function HeroBanner() {
   const navigate = useNavigate()
+
   return (
     <section className="hero">
-      <img className="hero-backdrop" src="https://media.themoviedb.org/t/p/w780/eZ239CUp1d6OryZEBPnO2n87gMG.jpg" alt="Avengers: Doomsday (2026)" />
+      <img
+        className="hero-backdrop"
+        src="https://media.themoviedb.org/t/p/w780/eZ239CUp1d6OryZEBPnO2n87gMG.jpg"
+        alt="Avengers: Doomsday (2026)"
+      />
       <div className="hero-overlay" />
       <div className="hero-content">
         <div className="hero-copy">
@@ -344,7 +504,9 @@ function HeroBanner() {
             <small>52.8K đánh giá · Siêu bom tấn 2026</small>
           </div>
           <p>
-            Sự trở lại chấn động của Robert Downey Jr. trong vai phản diện tối thượng Doctor Doom, mở ra trận chiến đa vũ trụ lớn nhất năm 2026 cùng biệt đội Avengers.
+            Sự trở lại chấn động của Robert Downey Jr. trong vai phản diện tối
+            thượng Doctor Doom, mở ra trận chiến đa vũ trụ lớn nhất năm 2026
+            cùng biệt đội Avengers.
           </p>
           <div className="hero-buttons">
             <Button onClick={() => navigate("/showtimes/avengers-doomsday")}>
@@ -359,7 +521,10 @@ function HeroBanner() {
           </div>
         </div>
         <div className="hero-poster">
-          <img src="https://image.tmdb.org/t/p/w500/jjD5dcWFusnlrz8HzlZQIPM1Xal.jpg" alt="Avengers: Doomsday (2026)" />
+          <img
+            src="https://image.tmdb.org/t/p/w500/jjD5dcWFusnlrz8HzlZQIPM1Xal.jpg"
+            alt="Avengers: Doomsday (2026)"
+          />
           <span className="poster-chip">
             <Zap size={15} fill="currentColor" /> IMAX 2026
           </span>
@@ -376,8 +541,11 @@ function HeroBanner() {
 
 function QuickBooking() {
   const navigate = useNavigate()
+
   const [selectedMovie, setSelectedMovie] = useState("avengers-doomsday")
+
   const [date, setDate] = useState("Hôm nay")
+
   return (
     <section className="quick-booking">
       <div className="quick-title">
@@ -402,9 +570,14 @@ function QuickBooking() {
         <span>
           <Film size={15} /> Phim
         </span>
-        <select value={selectedMovie} onChange={(e) => setSelectedMovie(e.target.value)}>
+        <select
+          value={selectedMovie}
+          onChange={(e) => setSelectedMovie(e.target.value)}
+        >
           {movies.map((m) => (
-            <option key={m.id} value={m.id}>{m.title}</option>
+            <option key={m.id} value={m.id}>
+              {m.title}
+            </option>
           ))}
         </select>
       </label>
@@ -489,6 +662,7 @@ function HomePage() {
 
 function MoviesPage() {
   const [tab, setTab] = useState("now")
+
   return (
     <main className="page-main">
       <section className="container">
@@ -537,9 +711,13 @@ function MoviesPage() {
 
 function MovieDetailPage() {
   const { id } = useParams()
+
   const navigate = useNavigate()
+
   const allMovies = [...movies, ...upcoming]
+
   const movie = allMovies.find((m) => m.id === id) || movies[0]
+
   const isUpcoming = upcoming.some((u) => u.id === movie.id)
 
   return (
@@ -611,14 +789,19 @@ function MovieDetailPage() {
 
 const dates = [
   { day: "Hôm nay", date: "26/09" },
+
   { day: "Thứ 7", date: "27/09" },
+
   { day: "Chủ nhật", date: "28/09" },
+
   { day: "Thứ 2", date: "29/09" },
+
   { day: "Thứ 3", date: "30/09" },
 ]
 
 function BookingSteps({ current }: { current: number }) {
   const steps = ["Suất chiếu", "Chọn ghế", "Combo", "Thanh toán", "Hoàn tất"]
+
   return (
     <div className="booking-steps">
       {steps.map((step, index) => (
@@ -626,6 +809,7 @@ function BookingSteps({ current }: { current: number }) {
           key={step}
           className={cn(
             index + 1 <= current && "complete",
+
             index + 1 === current && "current",
           )}
         >
@@ -644,18 +828,25 @@ function ShowtimesPage({
   onSelectShowtime: (selection: ShowtimeSelection) => void
 }) {
   const { id } = useParams()
+
   const allMovies = [...movies, ...upcoming]
+
   const currentMovie = allMovies.find((m) => m.id === id) || movies[0]
 
   const [date, setDate] = useState(0)
+
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
+
   const groups = [
     {
       name: "2D Phụ đề",
+
       times: ["10:00", "11:30", "13:00", "15:30", "18:00", "20:30"],
     },
+
     { name: "IMAX 2D", times: ["11:00", "14:00", "17:00", "21:00"] },
   ]
+
   return (
     <main className="page-main">
       <section className="container booking-page">
@@ -703,11 +894,16 @@ function ShowtimesPage({
                       className={cn(selectedTime === time && "selected")}
                       onClick={() => {
                         setSelectedTime(time)
+
                         onSelectShowtime({
                           movie: currentMovie.title,
+
                           cinema: "5TOP CINEMA Biên Hòa",
+
                           date: dates[date].date,
+
                           time,
+
                           format: group.name,
                         })
                       }}
@@ -725,7 +921,9 @@ function ShowtimesPage({
             <div>
               <span className="format-badge">{currentMovie.format}</span>
               <h3>{currentMovie.title}</h3>
-              <p>{currentMovie.runtime} · {currentMovie.genre}</p>
+              <p>
+                {currentMovie.runtime} · {currentMovie.genre}
+              </p>
             </div>
           </aside>
         </div>
@@ -736,28 +934,43 @@ function ShowtimesPage({
 
 const bookedSeats = new Set([
   "A3",
+
   "A4",
+
   "B7",
+
   "C2",
+
   "C3",
+
   "D8",
+
   "E1",
+
   "F5",
+
   "F6",
+
   "G7",
 ])
+
 const vipRows = new Set(["D", "E"])
 
 function BookingSummary({
   selected,
+
   onContinue,
+
   showtime,
 }: {
   selected: string[]
+
   onContinue: () => void
+
   showtime: ShowtimeSelection
 }) {
   const total = selected.length * 75000
+
   return (
     <aside className="booking-summary">
       <div className="summary-movie">
@@ -779,7 +992,9 @@ function BookingSummary({
         </div>
         <div>
           <span>Suất chiếu</span>
-          <b>{showtime.time} · {showtime.date}/2026</b>
+          <b>
+            {showtime.time} · {showtime.date}/2026
+          </b>
         </div>
         <div>
           <span>Ghế đã chọn</span>
@@ -820,13 +1035,16 @@ function BookingSummary({
 
 function SeatsPage({ showtime }: { showtime: ShowtimeSelection }) {
   const navigate = useNavigate()
+
   const [selected, setSelected] = useState<string[]>(["D5", "D6"])
+
   const toggle = (seat: string) =>
     setSelected((items) =>
       items.includes(seat)
         ? items.filter((item) => item !== seat)
         : [...items, seat],
     )
+
   return (
     <main className="page-main seats-page">
       <section className="container">
@@ -834,7 +1052,10 @@ function SeatsPage({ showtime }: { showtime: ShowtimeSelection }) {
         <div className="page-header compact">
           <span className="eyebrow">Bước 2 / 5</span>
           <h1>Chọn ghế</h1>
-          <p>{showtime.movie} · {showtime.cinema} · {showtime.date} · {showtime.time} · {showtime.format}</p>
+          <p>
+            {showtime.movie} · {showtime.cinema} · {showtime.date} ·{" "}
+            {showtime.time} · {showtime.format}
+          </p>
         </div>
         <div className="seat-layout">
           <div className="seat-panel">
@@ -857,8 +1078,11 @@ function SeatsPage({ showtime }: { showtime: ShowtimeSelection }) {
                         onClick={() => toggle(seat)}
                         className={cn(
                           "seat",
+
                           vipRows.has(row) && "vip",
+
                           bookedSeats.has(seat) && "booked",
+
                           selected.includes(seat) && "selected",
                         )}
                       >
@@ -899,37 +1123,53 @@ function SeatsPage({ showtime }: { showtime: ShowtimeSelection }) {
 const comboData = [
   {
     name: "Combo Solo",
+
     detail: "1 bắp ngọt vừa + 1 Coca",
+
     price: 75000,
+
     color: "coral",
   },
+
   {
     name: "Combo Couple",
+
     detail: "1 bắp ngọt lớn + 2 Coca",
+
     price: 120000,
+
     color: "blue",
   },
+
   {
     name: "Coca-Cola",
+
     detail: "1 ly Coca-Cola 32oz",
+
     price: 25000,
+
     color: "teal",
   },
 ]
 
 function ComboPage() {
   const navigate = useNavigate()
+
   const [quantities, setQuantities] = useState([0, 1, 0])
+
   const change = (index: number, delta: number) =>
     setQuantities((old) =>
       old.map((quantity, i) =>
         i === index ? Math.max(0, quantity + delta) : quantity,
       ),
     )
+
   const comboTotal = quantities.reduce(
     (sum, quantity, index) => sum + quantity * comboData[index].price,
+
     0,
   )
+
   return (
     <main className="page-main">
       <section className="container booking-page">
@@ -996,13 +1236,19 @@ function ComboPage() {
 
 function PaymentPage() {
   const navigate = useNavigate()
+
   const [method, setMethod] = useState("momo")
+
   const methods = [
     ["momo", "MoMo", "M"],
+
     ["zalopay", "ZaloPay", "Z"],
+
     ["vnpay", "VNPay", "V"],
+
     ["card", "Thẻ ngân hàng", "C"],
   ]
+
   return (
     <main className="page-main">
       <section className="container booking-page">
@@ -1157,10 +1403,14 @@ function SuccessPage() {
 function CinemasPage() {
   const cinemas = [
     "5TOP CINEMA Biên Hòa",
+
     "5TOP CINEMA Thủ Đức",
+
     "5TOP CINEMA Quận 7",
+
     "5TOP CINEMA Bình Dương",
   ]
+
   return (
     <main className="page-main">
       <section className="container">
@@ -1207,21 +1457,31 @@ function PromotionsPage() {
   const promos = [
     [
       "Giảm 20% mỗi thứ Hai",
+
       "Nạp năng lượng đầu tuần với giá vé ưu đãi.",
+
       "MONDAY20",
     ],
+
     ["Combo đôi chỉ 99K", "Hẹn hò trọn vẹn với bắp lớn và 2 nước.", "COUPLE99"],
+
     [
       "Chào thành viên mới",
+
       "Nhận ngay voucher 50K cho lần đặt đầu tiên.",
+
       "HELLO50",
     ],
+
     [
       "Ưu đãi học sinh sinh viên",
+
       "Đồng giá 55K từ thứ Hai đến thứ Sáu.",
+
       "STUDENT",
     ],
   ]
+
   return (
     <main className="page-main">
       <section className="container">
@@ -1266,6 +1526,7 @@ function PromotionsPage() {
 
 function TicketDetailModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
@@ -1282,7 +1543,9 @@ function TicketDetailModal({ onClose }: { onClose: () => void }) {
               <Ticket size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-base">Chi tiết vé điện tử</h3>
+              <h3 className="font-bold text-slate-800 text-base">
+                Chi tiết vé điện tử
+              </h3>
               <p className="text-xs text-slate-500">Mã vé: CHB-82931</p>
             </div>
           </div>
@@ -1322,10 +1585,12 @@ function TicketDetailModal({ onClose }: { onClose: () => void }) {
                   Avengers: Secret Wars
                 </h4>
                 <p className="text-xs text-slate-300 mt-2 flex items-center gap-1.5">
-                  <MapPin size={13} className="text-blue-400 shrink-0" /> 5TOP CINEMA Biên Hòa
+                  <MapPin size={13} className="text-blue-400 shrink-0" /> 5TOP
+                  CINEMA Biên Hòa
                 </p>
                 <p className="text-xs text-slate-300 mt-1 flex items-center gap-1.5">
-                  <MonitorPlay size={13} className="text-blue-400 shrink-0" /> Phòng chiếu: Phòng 04
+                  <MonitorPlay size={13} className="text-blue-400 shrink-0" />{" "}
+                  Phòng chiếu: Phòng 04
                 </p>
               </div>
             </div>
@@ -1333,15 +1598,21 @@ function TicketDetailModal({ onClose }: { onClose: () => void }) {
             {/* Ticket Info Row */}
             <div className="grid grid-cols-3 gap-2 text-center bg-slate-800/80 rounded-xl p-3 border border-slate-700/60 mt-4">
               <div>
-                <span className="block text-[11px] text-slate-400 mb-0.5">Ngày chiếu</span>
+                <span className="block text-[11px] text-slate-400 mb-0.5">
+                  Ngày chiếu
+                </span>
                 <b className="text-sm font-semibold text-white">28/09/2026</b>
               </div>
               <div>
-                <span className="block text-[11px] text-slate-400 mb-0.5">Suất chiếu</span>
+                <span className="block text-[11px] text-slate-400 mb-0.5">
+                  Suất chiếu
+                </span>
                 <b className="text-sm font-semibold text-blue-300">19:30</b>
               </div>
               <div>
-                <span className="block text-[11px] text-slate-400 mb-0.5">Ghế ngồi</span>
+                <span className="block text-[11px] text-slate-400 mb-0.5">
+                  Ghế ngồi
+                </span>
                 <b className="text-sm font-bold text-amber-300">D5, D6</b>
               </div>
             </div>
@@ -1359,7 +1630,8 @@ function TicketDetailModal({ onClose }: { onClose: () => void }) {
               CHB-82931
             </b>
             <p className="text-xs text-slate-500 mt-1.5 max-w-xs">
-              Quét mã này tại quầy vé hoặc cổng vào phòng chiếu trước giờ phim chiếu 15 phút.
+              Quét mã này tại quầy vé hoặc cổng vào phòng chiếu trước giờ phim
+              chiếu 15 phút.
             </p>
           </div>
 
@@ -1425,7 +1697,10 @@ function TicketDetailModal({ onClose }: { onClose: () => void }) {
 }
 
 function TicketsPage() {
-  const [tab, setTab] = useState<"upcoming" | "watched" | "cancelled">("upcoming")
+  const [tab, setTab] = useState<"upcoming" | "watched" | "cancelled">(
+    "upcoming",
+  )
+
   const [showDetail, setShowDetail] = useState(false)
 
   return (
@@ -1492,7 +1767,9 @@ function TicketsPage() {
           <div className="empty-state py-16 text-center text-slate-500 bg-white rounded-2xl border border-slate-100 my-6">
             <Ticket size={48} className="mx-auto text-slate-300 mb-3" />
             <h3 className="font-semibold text-slate-700 text-lg mb-1">
-              {tab === "watched" ? "Chưa có vé đã xem" : "Không có vé nào bị hủy"}
+              {tab === "watched"
+                ? "Chưa có vé đã xem"
+                : "Không có vé nào bị hủy"}
             </h3>
             <p className="text-sm text-slate-400">
               {tab === "watched"
@@ -1502,7 +1779,9 @@ function TicketsPage() {
           </div>
         )}
 
-        {showDetail && <TicketDetailModal onClose={() => setShowDetail(false)} />}
+        {showDetail && (
+          <TicketDetailModal onClose={() => setShowDetail(false)} />
+        )}
       </section>
     </main>
   )
@@ -1513,10 +1792,15 @@ function AdminPage() {
 
   const menu = [
     { label: "Tổng quan", path: "/admin", icon: LayoutDashboard },
+
     { label: "Tài khoản", path: "/admin/users", icon: Users },
+
     { label: "Thể loại", path: "/admin/genres", icon: Film },
+
     { label: "Phim", path: "/admin/movies", icon: Film },
+
     { label: "Phòng & ghế", path: "/admin/rooms", icon: MonitorPlay },
+    { label: "Suất chiếu", path: "/admin/showtimes", icon: CalendarDays },
   ]
 
   return (
@@ -1538,9 +1822,10 @@ function AdminPage() {
                 to={path}
                 end={path === "/admin"}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${isActive
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-blue-50"
+                  `flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${
+                    isActive
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-blue-50"
                   }`
                 }
               >
@@ -1557,16 +1842,12 @@ function AdminPage() {
           <Route path="genres" element={<AdminGenresPage />} />
           <Route path="movies" element={<AdminMoviesPage />} />
           <Route path="rooms" element={<AdminRoomsPage />} />
-          <Route
-            path="rooms/:roomId/seats"
-            element={<AdminSeatsPage />}
-          />
+          <Route path="showtimes" element={<AdminShowtimesPage />} />
+          <Route path="rooms/:roomId/seats" element={<AdminSeatsPage />} />
           <Route
             path="*"
             element={
-              <p className="p-6 text-center">
-                Không tìm thấy trang quản trị.
-              </p>
+              <p className="p-6 text-center">Không tìm thấy trang quản trị.</p>
             }
           />
         </Routes>
@@ -1622,50 +1903,86 @@ function Footer() {
 
 function SiteLayout() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
+  const isStaffRoute = location.pathname.startsWith("/staff")
+
   const [loginOpen, setLoginOpen] = useState(false)
-  const [pendingShowtime, setPendingShowtime] = useState<ShowtimeSelection | null>(null)
+
+  const [pendingShowtime, setPendingShowtime] =
+    useState<ShowtimeSelection | null>(null)
+
   const [showtime, setShowtime] = useState<ShowtimeSelection>(defaultShowtime)
 
   const selectShowtime = (selection: ShowtimeSelection) => {
     setShowtime(selection)
+
     if (user) {
       navigate("/seats")
+
       return
     }
+
     setPendingShowtime(selection)
+
     setLoginOpen(true)
   }
 
   const handleAuthenticated = () => {
     setLoginOpen(false)
+
     if (pendingShowtime) {
       setShowtime(pendingShowtime)
+
       setPendingShowtime(null)
+
       navigate("/seats")
     }
   }
 
   return (
     <>
-      <Navbar onOpenLogin={() => setLoginOpen(true)} />
+      {!isStaffRoute && <Navbar onOpenLogin={() => setLoginOpen(true)} />}
       <Routes>
         <Route path="/" element={<CinemaHomePage />} />
         <Route path="/movies" element={<MoviesFromDatabasePage />} />
+        <Route path="/movies/:id" element={<MovieDetailFromDatabasePage />} />
+        <Route path="/showtimes" element={<ShowtimePage />} />
+        <Route path="/booking/:showtimeId" element={<SeatSelectionPage />} />
+        <Route path="/seats/:showtimeId" element={<SeatSelectionPage />} />
+        <Route path="/booking/checkout/:bookingId" element={<CheckoutPage />} />
+        <Route path="/checkout/:bookingId" element={<CheckoutPage />} />
         <Route
-          path="/movies/:id"
-          element={<MovieDetailFromDatabasePage />}
+          path="/my-tickets"
+          element={
+            <ProtectedRoute>
+              <MyTicketsPage />
+            </ProtectedRoute>
+          }
         />
-        <Route path="/showtimes" element={<BookingUnavailablePage />} />
-        <Route path="/showtimes/:id" element={<BookingUnavailablePage />} />
-        <Route path="/seats" element={<BookingUnavailablePage />} />
+        <Route path="/showtimes/:id" element={<ShowtimePage />} />
+        <Route path="/seats" element={<SeatSelectionPage />} />
         <Route path="/combo" element={<BookingUnavailablePage />} />
         <Route path="/payment" element={<BookingUnavailablePage />} />
         <Route path="/success" element={<BookingUnavailablePage />} />
         <Route path="/cinemas" element={<CinemasPage />} />
         <Route path="/promotions" element={<PromotionsPage />} />
-        <Route path="/tickets" element={<BookingUnavailablePage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route
+          path="/tickets"
+          element={
+            <ProtectedRoute>
+              <MyTicketsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/admin/*"
@@ -1675,15 +1992,33 @@ function SiteLayout() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/staff"
+          element={
+            <ProtectedRoute allowedRoles={["staff", "admin"]}>
+              <StaffLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<StaffDashboardPage />} />
+          <Route path="check-in" element={<StaffCheckInPage />} />
+          <Route path="tickets" element={<StaffTicketLookupPage />} />
+          <Route path="showtimes" element={<StaffShowtimesPage />} />
+        </Route>
       </Routes>
       <Routes>
         <Route path="/admin/*" element={null} />
+        <Route path="/staff/*" element={null} />
         <Route path="/login" element={null} />
         <Route path="*" element={<Footer />} />
       </Routes>
       {loginOpen && (
         <AuthModal
-          message={pendingShowtime ? "Vui lòng đăng nhập để tiếp tục đặt vé." : undefined}
+          message={
+            pendingShowtime
+              ? "Vui lòng đăng nhập để tiếp tục đặt vé."
+              : undefined
+          }
           onClose={() => setLoginOpen(false)}
           onAuthenticated={handleAuthenticated}
         />

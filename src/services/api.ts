@@ -30,8 +30,10 @@ export async function apiFetch<T>(
   }
 
   if (!response.ok) {
-    const error = data?.error || data?.message || `Lỗi HTTP ${response.status}`
-    throw new Error(error)
+    const errorMsg = data?.error || data?.message || `Lỗi HTTP ${response.status}`
+    const error = new Error(errorMsg)
+    Object.assign(error, { data, status: response.status })
+    throw error
   }
 
   return data as T
