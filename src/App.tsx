@@ -7,7 +7,7 @@ import { AdminSeatsPage } from "./pages/admin/AdminSeatsPage"
 import { type FormEvent, useState, useEffect } from "react"
 import MoviesFromDatabasePage from "./pages/MoviesPage"
 import MovieDetailFromDatabasePage from "./pages/MovieDetailPage"
-import HomeFromDatabasePage from "./pages/HomePage"
+import CinemaHomePage from "./pages/CinemaHomePage"
 import BookingUnavailablePage from "./pages/BookingUnavailablePage"
 import {
   ArrowLeft,
@@ -1650,7 +1650,7 @@ function SiteLayout() {
     <>
       <Navbar onOpenLogin={() => setLoginOpen(true)} />
       <Routes>
-        <Route path="/" element={<HomeFromDatabasePage />} />
+        <Route path="/" element={<CinemaHomePage />} />
         <Route path="/movies" element={<MoviesFromDatabasePage />} />
         <Route
           path="/movies/:id"
