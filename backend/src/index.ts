@@ -7,11 +7,15 @@ import userRoutes from "./routes/user.routes.js"
 import genreRoutes from "./routes/genre.routes.js"
 import movieRoutes from "./routes/movie.routes.js"
 import roomRoutes from "./routes/room.routes.js"
+import cinemaRoutes from "./routes/cinema.routes.js"
 import showtimeRoutes from "./routes/showtime.routes.js"
 import bookingRoutes from "./routes/booking.routes.js"
 import ticketRoutes from "./routes/ticket.routes.js"
+import paymentRoutes from "./routes/payment.routes.js"
 import { csrfProtection } from "./middleware/security.js"
 import statsRoutes from "./routes/stats.routes.js"
+import promotionRoutes from "./routes/promotion.routes.js"
+import adminPromotionRoutes from "./routes/admin-promotion.routes.js"
 
 dotenv.config()
 
@@ -62,11 +66,15 @@ app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/genres", genreRoutes)
 app.use("/api/movies", movieRoutes)
+app.use("/api/cinemas", cinemaRoutes)
 app.use("/api/cinema", roomRoutes)
 app.use("/api/showtimes", showtimeRoutes)
 app.use("/api/bookings", bookingRoutes)
+app.use("/api/payments", paymentRoutes)
 app.use("/api/tickets", ticketRoutes)
 app.use("/api/stats", statsRoutes)
+app.use("/api/promotions", promotionRoutes)
+app.use("/api/admin/promotions", adminPromotionRoutes)
 
 // Centralized 404 handler
 app.use((req: Request, res: Response) => {

@@ -250,6 +250,7 @@ h1, h2, h3, p { margin-top: 0; }
 .seat { width: 34px; height: 31px; display: grid; place-items: center; border: 1px solid #d7dde6; border-radius: 7px 7px 9px 9px; color: #687180; background: #edf0f4; font-size: 9px; font-weight: 700; transition: .18s ease; }
 button.seat:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--primary); }
 .seat.vip { border-color: #efc76d; color: #956600; background: var(--amber-soft); }
+.seat.couple { border-color: #f43f5e; color: #be123c; background: #ffe4e6; }
 .seat.selected { border-color: var(--primary); color: white; background: var(--primary); box-shadow: 0 5px 13px rgba(37,99,235,.22); }
 .seat.booked { border-color: #9ca3af; color: #d1d5db; background: #6b7280; cursor: not-allowed; }
 .seat-legend { display: flex; justify-content: center; gap: 22px; margin-top: 34px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--muted); font-size: 9px; }

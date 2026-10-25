@@ -1,4 +1,8 @@
-### CNM-5 — Đăng ký tài khoản khách hàng
+### ====================================================================
+### CINEMAHUB - API TEST SUITE
+### ====================================================================
+
+### 1. Đăng ký tài khoản khách hàng
 POST http://localhost:3000/api/auth/register
 Content-Type: application/json
 X-CinemaHub-Request: 1
@@ -9,3 +13,113 @@ X-CinemaHub-Request: 1
   "fullName": "Khách hàng minh chứng CNM-5",
   "phone": "0900000000"
 }
+
+### 2. Đăng nhập tài khoản khách hàng
+# @name loginUser
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+X-CinemaHub-Request: 1
+
+{
+  "email": "user@5top.vn",
+  "password": "123456"
+}
+
+### 3. Lấy danh sách suất chiếu khả dụng
+GET http://localhost:3000/api/showtimes
+X-CinemaHub-Request: 1
+
+### 4. Giữ ghế (Hold Seats) - Thay thế showtimeId và seatIds thực tế
+# @name holdSeats
+POST http://localhost:3000/api/bookings/hold
+Content-Type: application/json
+X-CinemaHub-Request: 1
+
+{
+  "showtimeId": "e8f5bd76-9765-4182-bdd1-740a0627c46d",
+  "seatIds": ["2855141a-2156-4e64-b8d2-0cae0dcb88e3"]
+}
+
+### ====================================================================
+### CỔNG THANH TOÁN MOMO SANDBOX
+### ====================================================================
+
+### 5. Khởi tạo thanh toán MoMo Sandbox cho đơn đặt vé
+# @name createMomoPayment
+POST http://localhost:3000/api/payments/momo/create
+Content-Type: application/json
+X-CinemaHub-Request: 1
+
+{
+  "bookingId": "REPLACE_WITH_PENDING_BOOKING_ID",
+  "orderInfo": "Thanh toán vé xem phim CinemaHub"
+}
+
+### 6. Tra cứu trạng thái thanh toán MoMo (Polling)
+GET http://localhost:3000/api/payments/momo/status/REPLACE_WITH_ORDER_ID?bookingId=REPLACE_WITH_BOOKING_ID
+X-CinemaHub-Request: 1
+
+### 7. Giả lập MoMo IPN Callback (Giao dịch thành công - resultCode = 0)
+POST http://localhost:3000/api/payments/momo/ipn
+Content-Type: application/json
+
+{
+  "partnerCode": "MOMO",
+  "orderId": "REPLACE_WITH_ORDER_ID",
+  "requestId": "REPLACE_WITH_REQUEST_ID",
+  "amount": 90000,
+  "orderInfo": "Thanh toán vé xem phim CinemaHub",
+  "orderType": "momo_wallet",
+  "transId": 2398471928,
+  "resultCode": 0,
+  "message": "Giao dịch thành công.",
+  "payType": "qr",
+  "responseTime": 1729780000000,
+  "extraData": "",
+  "signature": ""
+}
+
+
+### 8. Giả lập MoMo IPN Callback (Giao dịch thất bại / Khách hủy - resultCode = 1006)
+POST http://localhost:3000/api/payments/momo/ipn
+Content-Type: application/json
+
+{
+  "partnerCode": "MOMO",
+  "orderId": "REPLACE_WITH_ORDER_ID",
+  "requestId": "REPLACE_WITH_REQUEST_ID",
+  "amount": 90000,
+  "orderInfo": "Thanh toán vé xem phim CinemaHub",
+  "orderType": "momo_wallet",
+  "transId": 2398471929,
+  "resultCode": 1006,
+  "message": "Giao dịch bị từ chối bởi người dùng.",
+  "payType": "qr",
+  "responseTime": 1729780000000,
+  "extraData": "",
+  "signature": ""
+}
+
+### ====================================================================
+### DỊCH VỤ EMAIL XÁC NHẬN ĐẶT VÉ (GMAIL SMTP / NODEMAILER)
+### ====================================================================
+
+### 9. Gửi lại email vé điện tử theo mã đơn đặt vé (Booking ID)
+POST http://localhost:3000/api/bookings/REPLACE_WITH_BOOKING_ID/send-email
+Content-Type: application/json
+X-CinemaHub-Request: 1
+
+{
+  "email": "5topcinema.service@gmail.com"
+}
+
+### 10. Gửi lại email vé điện tử theo mã vé (Ticket Code)
+POST http://localhost:3000/api/tickets/REPLACE_WITH_TICKET_CODE/send-email
+Content-Type: application/json
+X-CinemaHub-Request: 1
+
+{
+  "email": "5topcinema.service@gmail.com"
+}
+
+

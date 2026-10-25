@@ -15,14 +15,100 @@ const generateSeatsSchema = z.object({
   overwrite: z.boolean().optional().default(false),
 })
 
+const createCinemaSchema = z.object({
+  name: z.string().trim().min(2, "Tên cụm rạp phải có ít nhất 2 ký tự"),
+  city: z.string().trim().optional(),
+  location: z.string().trim().optional(),
+  address: z.string().trim().optional().nullable(),
+})
+
 // ========== Cinemas ==========
 export async function getCinemas(_req: Request, res: Response) {
   try {
-    const cinemas = await prisma.cinema.findMany({ orderBy: { name: "asc" } })
-    return res.json({ cinemas })
+    const cinemas = await prisma.cinema.findMany({
+      include: {
+        rooms: {
+          orderBy: { name: "asc" },
+          include: {
+            _count: { select: { seats: { where: { isActive: true } } } },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    })
+    return res.json({
+      cinemas: cinemas.map((c) => ({
+        id: c.id,
+        name: c.name,
+        location: c.location,
+        city: c.location,
+        address: c.address,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        rooms: c.rooms.map((r) => ({
+          id: r.id,
+          cinemaId: r.cinemaId,
+          cinemaName: c.name,
+          name: r.name,
+          format: r.format,
+          capacity: r._count.seats,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        })),
+      })),
+    })
   } catch (error) {
     console.error("Get cinemas error:", error)
     return res.status(500).json({ error: "Lỗi hệ thống khi tải danh sách rạp" })
+  }
+}
+
+export async function createCinema(req: Request, res: Response) {
+  try {
+    const parseResult = createCinemaSchema.safeParse(req.body)
+    if (!parseResult.success) {
+      return res.status(400).json({
+        error: parseResult.error.errors[0]?.message || "Dữ liệu cụm rạp không hợp lệ",
+      })
+    }
+
+    const { name, city, location, address } = parseResult.data
+    const finalLocation = city || location || "TP.HCM"
+
+    const existing = await prisma.cinema.findUnique({
+      where: { name },
+    })
+    if (existing) {
+      return res.status(409).json({ error: "Tên cụm rạp này đã tồn tại" })
+    }
+
+    const cinema = await prisma.cinema.create({
+      data: {
+        name,
+        location: finalLocation,
+        address: address || null,
+      },
+      include: {
+        rooms: true,
+      },
+    })
+
+    return res.status(201).json({
+      message: "Tạo cụm rạp thành công",
+      cinema: {
+        id: cinema.id,
+        name: cinema.name,
+        location: cinema.location,
+        city: cinema.location,
+        address: cinema.address,
+        createdAt: cinema.createdAt,
+        updatedAt: cinema.updatedAt,
+        rooms: cinema.rooms || [],
+      },
+    })
+  } catch (error) {
+    console.error("Create cinema error:", error)
+    return res.status(500).json({ error: "Lỗi hệ thống khi tạo cụm rạp" })
   }
 }
 

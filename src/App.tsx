@@ -10,10 +10,11 @@ import { AdminRoomsPage } from "./pages/admin/AdminRoomsPage"
 
 import { AdminSeatsPage } from "./pages/admin/AdminSeatsPage"
 import AdminShowtimesPage from "./pages/admin/AdminShowtimesPage"
+import AdminPromotionsPage from "./pages/admin/AdminPromotionsPage"
 import ShowtimePage from "./pages/ShowtimePage"
 import SeatSelectionPage from "./pages/SeatSelectionPage"
 import CheckoutPage from "./pages/CheckoutPage"
-import MyTicketsPage from "./pages/MyTicketsPage"
+import MyTicketsPage, { SuccessPage } from "./pages/MyTicketsPage"
 import { StaffLayout } from "./components/staff/StaffLayout"
 import StaffDashboardPage from "./pages/staff/StaffDashboardPage"
 import StaffCheckInPage from "./pages/staff/StaffCheckInPage"
@@ -29,6 +30,10 @@ import MovieDetailFromDatabasePage from "./pages/MovieDetailPage"
 import CinemaHomePage from "./pages/CinemaHomePage"
 
 import BookingUnavailablePage from "./pages/BookingUnavailablePage"
+import PromotionsPage from "./pages/PromotionsPage"
+import PromotionDetailPage from "./pages/PromotionDetailPage"
+import { ToastProvider } from "./components/Toast"
+import { CinemaLocationProvider } from "./context/CinemaLocationContext"
 
 import {
   ArrowLeft,
@@ -54,6 +59,7 @@ import {
   QrCode,
   Search,
   Star,
+  Tag,
   Ticket,
   Users,
   X,
@@ -1331,7 +1337,7 @@ function PaymentPage() {
   )
 }
 
-function SuccessPage() {
+function _LegacySuccessPage() {
   return (
     <main className="success-page">
       <div className="success-wrap">
@@ -1444,77 +1450,6 @@ function CinemasPage() {
                 <Link to="/showtimes" className="cinema-link">
                   Xem suất chiếu <ArrowRight size={17} />
                 </Link>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </main>
-  )
-}
-
-function PromotionsPage() {
-  const promos = [
-    [
-      "Giảm 20% mỗi thứ Hai",
-
-      "Nạp năng lượng đầu tuần với giá vé ưu đãi.",
-
-      "MONDAY20",
-    ],
-
-    ["Combo đôi chỉ 99K", "Hẹn hò trọn vẹn với bắp lớn và 2 nước.", "COUPLE99"],
-
-    [
-      "Chào thành viên mới",
-
-      "Nhận ngay voucher 50K cho lần đặt đầu tiên.",
-
-      "HELLO50",
-    ],
-
-    [
-      "Ưu đãi học sinh sinh viên",
-
-      "Đồng giá 55K từ thứ Hai đến thứ Sáu.",
-
-      "STUDENT",
-    ],
-  ]
-
-  return (
-    <main className="page-main">
-      <section className="container">
-        <div className="promo-hero">
-          <div>
-            <span>Ưu đãi tháng 9</span>
-            <h1>
-              Thêm niềm vui,
-              <br />
-              nhẹ ví hơn.
-            </h1>
-            <p>Khám phá những ưu đãi độc quyền tại 5TOP CINEMA.</p>
-          </div>
-          <Ticket size={128} />
-        </div>
-        <SectionTitle title="Khuyến mãi nổi bật" />
-        <div className="promo-grid">
-          {promos.map(([title, copy, code], index) => (
-            <article
-              className={cn("promo-card", `promo-${index + 1}`)}
-              key={title}
-            >
-              <div className="promo-art">
-                <span>{index % 2 ? "SPECIAL" : "5TOP CINEMA"}</span>
-                <b>{code}</b>
-              </div>
-              <div>
-                <small>Đến 30.09.2026</small>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-                <Button variant="secondary">
-                  Xem chi tiết <ArrowRight size={16} />
-                </Button>
               </div>
             </article>
           ))}
@@ -1801,6 +1736,7 @@ function AdminPage() {
 
     { label: "Phòng & ghế", path: "/admin/rooms", icon: MonitorPlay },
     { label: "Suất chiếu", path: "/admin/showtimes", icon: CalendarDays },
+    { label: "Khuyến mãi", path: "/admin/promotions", icon: Tag },
   ]
 
   return (
@@ -1822,10 +1758,9 @@ function AdminPage() {
                 to={path}
                 end={path === "/admin"}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${
-                    isActive
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-700 hover:bg-blue-50"
+                  `flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${isActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-700 hover:bg-blue-50"
                   }`
                 }
               >
@@ -1843,6 +1778,7 @@ function AdminPage() {
           <Route path="movies" element={<AdminMoviesPage />} />
           <Route path="rooms" element={<AdminRoomsPage />} />
           <Route path="showtimes" element={<AdminShowtimesPage />} />
+          <Route path="promotions" element={<AdminPromotionsPage />} />
           <Route path="rooms/:roomId/seats" element={<AdminSeatsPage />} />
           <Route
             path="*"
@@ -1948,6 +1884,9 @@ function SiteLayout() {
         <Route path="/movies" element={<MoviesFromDatabasePage />} />
         <Route path="/movies/:id" element={<MovieDetailFromDatabasePage />} />
         <Route path="/showtimes" element={<ShowtimePage />} />
+        <Route path="/booking" element={<ShowtimePage />} />
+        <Route path="/booking/success" element={<SuccessPage />} />
+        <Route path="/success" element={<SuccessPage />} />
         <Route path="/booking/:showtimeId" element={<SeatSelectionPage />} />
         <Route path="/seats/:showtimeId" element={<SeatSelectionPage />} />
         <Route path="/booking/checkout/:bookingId" element={<CheckoutPage />} />
@@ -1964,9 +1903,11 @@ function SiteLayout() {
         <Route path="/seats" element={<SeatSelectionPage />} />
         <Route path="/combo" element={<BookingUnavailablePage />} />
         <Route path="/payment" element={<BookingUnavailablePage />} />
-        <Route path="/success" element={<BookingUnavailablePage />} />
+
         <Route path="/cinemas" element={<CinemasPage />} />
         <Route path="/promotions" element={<PromotionsPage />} />
+        <Route path="/promotions/:id" element={<PromotionDetailPage />} />
+        <Route path="/khuyen-mai/:slug" element={<PromotionDetailPage />} />
         <Route
           path="/tickets"
           element={
@@ -2030,9 +1971,13 @@ function SiteLayout() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <SiteLayout />
-      </BrowserRouter>
+      <ToastProvider>
+        <CinemaLocationProvider>
+          <BrowserRouter>
+            <SiteLayout />
+          </BrowserRouter>
+        </CinemaLocationProvider>
+      </ToastProvider>
     </AuthProvider>
   )
 }
