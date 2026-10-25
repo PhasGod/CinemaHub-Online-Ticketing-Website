@@ -161,7 +161,9 @@ export interface Cinema {
   id: string
   name: string
   location: string
+  city?: string
   address: string | null
+  rooms?: Room[]
 }
 
 export interface Room {
@@ -176,7 +178,16 @@ export interface Room {
 }
 
 export async function adminGetCinemas(): Promise<{ cinemas: Cinema[] }> {
-  return apiFetch("/cinema/cinemas")
+  return apiFetch<{ cinemas: Cinema[] }>("/cinemas").catch(() => apiFetch<{ cinemas: Cinema[] }>("/cinema/cinemas"))
+}
+
+export async function adminCreateCinema(data: {
+  name: string
+  city?: string
+  location?: string
+  address?: string
+}): Promise<{ message: string; cinema: Cinema }> {
+  return apiFetch("/cinemas", { method: "POST", body: JSON.stringify(data) })
 }
 
 export async function adminGetRooms(cinemaId?: string): Promise<{ rooms: Room[] }> {

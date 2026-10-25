@@ -18,14 +18,15 @@ import {
   adminCreateShowtime,
   adminCancelShowtime,
 } from "../../services/bookingApi"
-import { adminGetRooms, Cinema, Room } from "../../services/admin.service"
+import { adminGetCinemas, adminGetRooms, Cinema, Room } from "../../services/admin.service"
 import { apiFetch } from "../../services/api"
 import { ShowtimeItem } from "../../types/booking"
 
 interface MovieOption {
   id: string
   title: string
-  runtime: number
+  runtime?: number
+  duration?: number
 }
 
 function Toast({
@@ -63,69 +64,228 @@ function Toast({
   )
 }
 
+// Helper: định dạng Date sang chuỗi "YYYY-MM-DDTHH:mm" cho input datetime-local theo giờ địa phương
+function formatToLocalDateTimeInput(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = date.getDate()
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+// Helper: Lấy thời lượng phim (duration hoặc runtime, mặc định 120 phút)
+function getMovieDuration(movie?: MovieOption): number {
+  if (!movie) return 120
+  if (typeof movie.duration === "number" && !isNaN(movie.duration) && movie.duration > 0) {
+    return movie.duration
+  }
+  if (typeof movie.runtime === "number" && !isNaN(movie.runtime) && movie.runtime > 0) {
+    return movie.runtime
+  }
+  if (typeof movie.duration === "string") {
+    const parsed = parseInt(movie.duration, 10)
+    if (!isNaN(parsed) && parsed > 0) return parsed
+  }
+  return 120
+}
+
+// Helper: Tự động tính Giờ kết thúc theo công thức:
+// endTime = startTime + movie.duration (phút) + 15 phút (thời gian dọn rạp/quảng cáo)
+function calculateEndTime(startStr: string, durationMinutes: number): string {
+  if (!startStr) return ""
+  const startDate = new Date(startStr)
+  if (isNaN(startDate.getTime())) return ""
+  const endDate = new Date(startDate.getTime() + (durationMinutes + 15) * 60 * 1000)
+  return formatToLocalDateTimeInput(endDate)
+}
+
+// Danh sách cụm rạp mặc định dự phòng nếu chưa có từ API
+const DEFAULT_CINEMAS: Cinema[] = [
+  {
+    id: "e8eb6397-07e6-4f8d-91f3-5f7904242b6a",
+    name: "5TOP CINEMA Biên Hòa",
+    location: "Biên Hòa",
+    address: "123 Đường Phạm Văn Thuận, P. Tân Tiến, Biên Hòa",
+  },
+  {
+    id: "61f3a185-ee92-4647-bb65-6ed079acbbae",
+    name: "5TOP CINEMA TP.HCM (Thủ Đức)",
+    location: "TP.HCM",
+    address: "216 Võ Văn Ngân, P. Bình Thọ, TP. Thủ Đức, TP.HCM",
+  },
+]
+
 function CreateShowtimeModal({
   movies,
+  cinemas,
   rooms,
   onClose,
   onCreated,
 }: {
   movies: MovieOption[]
+  cinemas: Cinema[]
   rooms: Room[]
   onClose: () => void
   onCreated: () => void
 }) {
+  // 1. Danh sách cụm rạp: Ưu tiên từ API + phòng chiếu hiện có, dự phòng cụm rạp hệ thống
+  const availableCinemas = React.useMemo(() => {
+    const cinemaMap = new Map<string, Cinema>()
+    // Từ API
+    cinemas.forEach((c) => {
+      if (c?.id) cinemaMap.set(c.id, c)
+    })
+    // Từ dữ liệu phòng chiếu
+    rooms.forEach((r) => {
+      if (r.cinemaId && !cinemaMap.has(r.cinemaId)) {
+        cinemaMap.set(r.cinemaId, {
+          id: r.cinemaId,
+          name: r.cinemaName || "Rạp chiếu",
+          location: "",
+          address: null,
+        })
+      }
+    })
+    // Nếu rỗng, fallback sang hệ thống
+    if (cinemaMap.size === 0) {
+      DEFAULT_CINEMAS.forEach((c) => cinemaMap.set(c.id, c))
+    }
+    return Array.from(cinemaMap.values())
+  }, [cinemas, rooms])
+
+  // Chọn phim
   const [movieId, setMovieId] = useState(movies[0]?.id || "")
-  const [roomId, setRoomId] = useState(rooms[0]?.id || "")
 
-  // Khởi tạo ngày mai lúc 14:00
-  const defaultStart = new Date()
-  defaultStart.setDate(defaultStart.getDate() + 1)
-  defaultStart.setHours(14, 0, 0, 0)
-  const defaultStartStr = defaultStart.toISOString().slice(0, 16)
+  // 2. Chọn Cụm Rạp (Cinema)
+  const [selectedCinemaId, setSelectedCinemaId] = useState<string>(() => {
+    const firstRoomCinemaId = rooms[0]?.cinemaId
+    if (firstRoomCinemaId && availableCinemas.some((c) => c.id === firstRoomCinemaId)) {
+      return firstRoomCinemaId
+    }
+    return availableCinemas[0]?.id || ""
+  })
 
-  const defaultEnd = new Date(defaultStart)
-  defaultEnd.setHours(16, 30, 0, 0)
-  const defaultEndStr = defaultEnd.toISOString().slice(0, 16)
+  // 3. Danh sách phòng chiếu trực thuộc cụm rạp đã chọn
+  const filteredRooms = React.useMemo(() => {
+    if (!selectedCinemaId) return rooms
+    return rooms.filter((r) => r.cinemaId === selectedCinemaId)
+  }, [rooms, selectedCinemaId])
 
-  const [startTime, setStartTime] = useState(defaultStartStr)
-  const [endTime, setEndTime] = useState(defaultEndStr)
+  // Chọn Phòng Chiếu (Room)
+  const [roomId, setRoomId] = useState<string>(() => {
+    const initialCinemaId =
+      rooms[0]?.cinemaId || availableCinemas[0]?.id || ""
+    const initialMatchingRooms = rooms.filter((r) => r.cinemaId === initialCinemaId)
+    return initialMatchingRooms[0]?.id || rooms[0]?.id || ""
+  })
+
+  // Đồng bộ roomId khi đổi rạp hoặc danh sách phòng thay đổi
+  useEffect(() => {
+    if (filteredRooms.length > 0) {
+      if (!filteredRooms.some((r) => r.id === roomId)) {
+        setRoomId(filteredRooms[0].id)
+      }
+    } else {
+      setRoomId("")
+    }
+  }, [filteredRooms, roomId])
+
+  // Xử lý khi người dùng đổi cụm rạp
+  const handleCinemaChange = (newCinemaId: string) => {
+    setSelectedCinemaId(newCinemaId)
+    const matchingRooms = rooms.filter((r) => r.cinemaId === newCinemaId)
+    setRoomId(matchingRooms[0]?.id || "")
+  }
+
+  // Khởi tạo ngày mai lúc 14:00 (giờ địa phương)
+  const [startTime, setStartTime] = useState(() => {
+    const defaultStart = new Date()
+    defaultStart.setDate(defaultStart.getDate() + 1)
+    defaultStart.setHours(14, 0, 0, 0)
+    return formatToLocalDateTimeInput(defaultStart)
+  })
+
+  // Tự động tính endTime ban đầu: startTime + movie.duration (phút) + 15 phút
+  const [endTime, setEndTime] = useState(() => {
+    const defaultStart = new Date()
+    defaultStart.setDate(defaultStart.getDate() + 1)
+    defaultStart.setHours(14, 0, 0, 0)
+    const startStr = formatToLocalDateTimeInput(defaultStart)
+    const initialMovie = movies.find((m) => m.id === movies[0]?.id)
+    const duration = getMovieDuration(initialMovie)
+    return calculateEndTime(startStr, duration)
+  })
+
   const [price, setPrice] = useState("90000")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Tự động cập nhật endTime khi thay đổi phim
+  // Tự động cập nhật endTime khi thay đổi Phim
   const handleMovieChange = (mId: string) => {
     setMovieId(mId)
     const selected = movies.find((m) => m.id === mId)
-    if (selected && startTime) {
-      const s = new Date(startTime)
-      const duration = selected.runtime || 120
-      const e = new Date(s.getTime() + (duration + 20) * 60000) // cộng thêm 20p dọn rạp
-      setEndTime(e.toISOString().slice(0, 16))
+    if (startTime) {
+      const duration = getMovieDuration(selected)
+      const calculatedEnd = calculateEndTime(startTime, duration)
+      if (calculatedEnd) {
+        setEndTime(calculatedEnd)
+      }
     }
   }
+
+  // Tự động cập nhật endTime khi thay đổi Giờ bắt đầu (startTime)
+  const handleStartTimeChange = (newStartTime: string) => {
+    setStartTime(newStartTime)
+    const selected = movies.find((m) => m.id === movieId)
+    if (newStartTime) {
+      const duration = getMovieDuration(selected)
+      const calculatedEnd = calculateEndTime(newStartTime, duration)
+      if (calculatedEnd) {
+        setEndTime(calculatedEnd)
+      }
+    }
+  }
+
+  const selectedMovie = movies.find((m) => m.id === movieId)
+  const currentDuration = getMovieDuration(selectedMovie)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    if (!roomId) {
+      setError("Vui lòng chọn phòng chiếu hợp lệ")
+      return
+    }
+
+    const sDate = new Date(startTime)
+    const eDate = new Date(endTime)
+    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime())) {
+      setError("Thời gian bắt đầu hoặc kết thúc không hợp lệ")
+      return
+    }
+
+    if (eDate.getTime() <= sDate.getTime()) {
+      setError("Giờ kết thúc phải sau giờ bắt đầu")
+      return
+    }
+
+    const numPrice = Number(price)
+    if (isNaN(numPrice) || numPrice <= 0) {
+      setError("Giá vé phải là số dương")
+      return
+    }
+
     setIsLoading(true)
 
     try {
-      const s = new Date(startTime).toISOString()
-      const end = new Date(endTime).toISOString()
-      const numPrice = Number(price)
-
-      if (isNaN(numPrice) || numPrice <= 0) {
-        setError("Giá vé phải là số dương")
-        setIsLoading(false)
-        return
-      }
-
       await adminCreateShowtime({
         movieId,
         roomId,
-        startTime: s,
-        endTime: end,
+        startTime: sDate.toISOString(),
+        endTime: eDate.toISOString(),
         price: numPrice,
       })
 
@@ -144,7 +304,7 @@ function CreateShowtimeModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 md:p-8"
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 md:p-8 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-100">
@@ -181,8 +341,8 @@ function CreateShowtimeModal({
 
         <form onSubmit={handleSubmit} className="space-y-4 text-slate-700">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-              Chọn Phim *
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
+              <Film size={14} className="text-blue-600" /> Chọn Phim *
             </label>
             <select
               value={movieId}
@@ -192,47 +352,82 @@ function CreateShowtimeModal({
             >
               {movies.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.title} ({m.runtime} phút)
+                  {m.title} ({getMovieDuration(m)} phút)
                 </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-              Chọn Phòng chiếu *
-            </label>
-            <select
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium"
-              required
-            >
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} — {r.cinemaName} ({r.format})
-                </option>
-              ))}
-            </select>
+          {/* Tách 2 dropdown phụ thuộc: Cụm Rạp & Phòng Chiếu */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 1. Chọn Cụm Rạp (Cinema) */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Building2 size={14} className="text-blue-600" /> Chọn Cụm Rạp *
+              </label>
+              <select
+                value={selectedCinemaId}
+                onChange={(e) => handleCinemaChange(e.target.value)}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium"
+                required
+              >
+                {availableCinemas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.location ? `(${c.location})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. Chọn Phòng Chiếu (Room) */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Armchair size={14} className="text-blue-600" /> Chọn Phòng chiếu *
+              </label>
+              <select
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                disabled={filteredRooms.length === 0}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                required
+              >
+                {filteredRooms.length === 0 ? (
+                  <option value="" disabled>
+                    -- Chưa có phòng chiếu nào tại rạp này --
+                  </option>
+                ) : (
+                  filteredRooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.format})
+                    </option>
+                  ))
+                )}
+              </select>
+              {filteredRooms.length === 0 && (
+                <p className="text-[11px] text-amber-600 mt-1">
+                  Chưa có phòng chiếu cho rạp này.
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                Giờ bắt đầu *
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Clock size={14} className="text-blue-600" /> Giờ bắt đầu *
               </label>
               <input
                 type="datetime-local"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => handleStartTimeChange(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-2xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                Giờ kết thúc *
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Clock size={14} className="text-blue-600" /> Giờ kết thúc *
               </label>
               <input
                 type="datetime-local"
@@ -242,6 +437,13 @@ function CreateShowtimeModal({
                 required
               />
             </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 -mt-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+            <span>
+              Tự động tính: Thời lượng phim ({currentDuration} phút) + 15 phút dọn rạp/quảng cáo. Có thể điều chỉnh thủ công.
+            </span>
           </div>
 
           <div>
@@ -273,7 +475,7 @@ function CreateShowtimeModal({
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !roomId}
               className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md shadow-blue-500/30 flex items-center gap-2 transition disabled:opacity-50"
             >
               {isLoading && <Loader2 size={16} className="animate-spin" />}
@@ -289,6 +491,7 @@ function CreateShowtimeModal({
 export default function AdminShowtimesPage() {
   const [showtimes, setShowtimes] = useState<ShowtimeItem[]>([])
   const [movies, setMovies] = useState<MovieOption[]>([])
+  const [cinemas, setCinemas] = useState<Cinema[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -300,14 +503,16 @@ export default function AdminShowtimesPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [stRes, roomsRes, moviesRes] = await Promise.all([
+      const [stRes, roomsRes, moviesRes, cinemasRes] = await Promise.all([
         getShowtimes(),
         adminGetRooms(),
         apiFetch<{ movies: MovieOption[] }>("/movies?limit=100"),
+        adminGetCinemas().catch(() => ({ cinemas: [] })),
       ])
       setShowtimes(stRes.showtimes)
       setRooms(roomsRes.rooms)
       setMovies(moviesRes.movies)
+      setCinemas(cinemasRes.cinemas || [])
     } catch (err: any) {
       setToast({
         msg: err.message || "Không thể tải danh sách suất chiếu",
@@ -365,6 +570,7 @@ export default function AdminShowtimesPage() {
       {modalOpen && (
         <CreateShowtimeModal
           movies={movies}
+          cinemas={cinemas}
           rooms={rooms}
           onClose={() => setModalOpen(false)}
           onCreated={() => {

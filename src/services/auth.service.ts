@@ -33,3 +33,31 @@ export async function updateProfileApi(payload: UpdateProfilePayload): Promise<{
     body: JSON.stringify(payload),
   })
 }
+
+export async function forgotPasswordApi(email: string): Promise<{
+  message: string
+  email: string
+  expiresInSeconds?: number
+  devOtp?: string
+}> {
+  return apiFetch<{
+    message: string
+    email: string
+    expiresInSeconds?: number
+    devOtp?: string
+  }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  })
+}
+
+export async function resetPasswordApi(payload: {
+  email: string
+  otp: string
+  newPassword: string
+}): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}

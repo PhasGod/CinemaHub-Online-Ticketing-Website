@@ -1,135 +1,122 @@
-import React, { useState, useEffect } from "react"
-import { Users, Film, Tag, MonitorPlay, Building2, Armchair, Loader2, TrendingUp } from "lucide-react"
+import React, { useState, useEffect, useCallback } from "react"
 import { adminGetStats, AdminStats } from "../../services/admin.service"
-
-interface StatCardProps {
-  icon: React.ReactNode
-  label: string
-  value: number | string
-  color: string
-}
-
-function StatCard({ icon, label, value, color }: StatCardProps) {
-  return (
-    <div className={`bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4`}>
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-slate-800">{value}</p>
-        <p className="text-sm text-slate-500">{label}</p>
-      </div>
-    </div>
-  )
-}
+import { DashboardFilterState, DashboardData } from "../../types/dashboard"
+import { getExecutiveDashboardData } from "../../services/dashboardData"
+import DashboardHeader from "../../components/admin/dashboard/DashboardHeader"
+import KpiCardGroup from "../../components/admin/dashboard/KpiCardGroup"
+import RevenueChart from "../../components/admin/dashboard/RevenueChart"
+import TopMoviesChart from "../../components/admin/dashboard/TopMoviesChart"
+import LiveShowtimesTable from "../../components/admin/dashboard/LiveShowtimesTable"
+import RecentTransactionsTable from "../../components/admin/dashboard/RecentTransactionsTable"
+import SystemInventoryBar from "../../components/admin/dashboard/SystemInventoryBar"
 
 export function AdminDashboard() {
-  const [stats, setStats] = useState<AdminStats | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [reload, setReload] = useState(0)
+  const todayStr = new Date().toISOString().split("T")[0]
+
+  // Filter state
+  const [filters, setFilters] = useState<DashboardFilterState>({
+    timeRange: "today",
+    startDate: todayStr,
+    endDate: todayStr,
+    cinemaId: "ALL",
+  })
+
+  // Executive dashboard data
+  const [dashboardData, setDashboardData] = useState<DashboardData>(() =>
+    getExecutiveDashboardData({
+      timeRange: "today",
+      startDate: todayStr,
+      endDate: todayStr,
+      cinemaId: "ALL",
+    })
+  )
+
+  // Real backend system stats
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null)
+  const [isLoadingStats, setIsLoadingStats] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Fetch real backend counts
+  const loadSystemStats = useCallback(async () => {
+    setIsLoadingStats(true)
+    try {
+      const res = await adminGetStats()
+      setAdminStats(res.stats)
+    } catch (err) {
+      console.warn("Could not load backend system stats, using fallback:", err)
+    } finally {
+      setIsLoadingStats(false)
+    }
+  }, [])
 
   useEffect(() => {
-    let active = true
+    loadSystemStats()
+  }, [loadSystemStats])
 
-    setIsLoading(true)
-    setError("")
+  // Update executive analytics data whenever filters change
+  useEffect(() => {
+    const data = getExecutiveDashboardData(filters)
+    setDashboardData(data)
+  }, [filters])
 
-    adminGetStats()
-      .then((res) => {
-        if (active) setStats(res.stats)
-      })
-      .catch((err: unknown) => {
-        if (!active) return
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await Promise.all([
+      loadSystemStats(),
+      new Promise((resolve) => setTimeout(resolve, 600)),
+    ])
+    // Re-generate fresh data
+    const refreshed = getExecutiveDashboardData(filters)
+    setDashboardData(refreshed)
+    setIsRefreshing(false)
+  }
 
-        setStats(null)
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Không thể tải số liệu tổng quan",
-        )
-      })
-      .finally(() => {
-        if (active) setIsLoading(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [reload])
+  // Label for time range in chart
+  const timeRangeLabel =
+    filters.timeRange === "today"
+      ? "Khung Giờ Hôm Nay"
+      : filters.timeRange === "last7days"
+      ? "7 Ngày Qua"
+      : "Tháng Này"
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <TrendingUp size={24} className="text-blue-600" /> Dashboard
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">Tổng quan hệ thống CinemaHub</p>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      {/* 1. Header & Filter Toolbar */}
+      <DashboardHeader
+        filters={filters}
+        onFilterChange={setFilters}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        dashboardData={dashboardData}
+      />
+
+      {/* 2. Top Business & Operations KPI Cards */}
+      <KpiCardGroup kpi={dashboardData.kpi} />
+
+      {/* 3. Visual Analytics Charts Grid (65% / 35%) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div className="lg:col-span-8">
+          <RevenueChart data={dashboardData.revenueChart} timeRangeLabel={timeRangeLabel} />
+        </div>
+        <div className="lg:col-span-4">
+          <TopMoviesChart movies={dashboardData.topMovies} />
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin text-blue-600" size={36} />
-        </div>
-      ) : error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-          <p role="alert" className="mb-4 text-red-700">
-            {error}
-          </p>
+      {/* 4. Operational Tables */}
+      <div className="space-y-6">
+        {/* Live Showtimes Table */}
+        <LiveShowtimesTable showtimes={dashboardData.liveShowtimes} />
 
-          <button
-            className="button button-primary"
-            onClick={() => setReload((value) => value + 1)}
-          >
-            Thử lại
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <StatCard
-            icon={<Users size={22} className="text-violet-600" />}
-            label="Tổng tài khoản"
-            value={stats?.totalUsers ?? "—"}
-            color="bg-violet-100"
-          />
-          <StatCard
-            icon={<Users size={22} className="text-blue-600" />}
-            label="Nhân viên & Admin"
-            value={stats?.totalStaff ?? "—"}
-            color="bg-blue-100"
-          />
-          <StatCard
-            icon={<Film size={22} className="text-rose-600" />}
-            label="Bộ phim"
-            value={stats?.totalMovies ?? "—"}
-            color="bg-rose-100"
-          />
-          <StatCard
-            icon={<Tag size={22} className="text-amber-600" />}
-            label="Thể loại phim"
-            value={stats?.totalGenres ?? "—"}
-            color="bg-amber-100"
-          />
-          <StatCard
-            icon={<Building2 size={22} className="text-emerald-600" />}
-            label="Rạp chiếu"
-            value={stats?.totalCinemas ?? "—"}
-            color="bg-emerald-100"
-          />
-          <StatCard
-            icon={<MonitorPlay size={22} className="text-cyan-600" />}
-            label="Phòng chiếu"
-            value={stats?.totalRooms ?? "—"}
-            color="bg-cyan-100"
-          />
-          <StatCard
-            icon={<Armchair size={22} className="text-indigo-600" />}
-            label="Tổng số ghế"
-            value={stats?.totalSeats ?? "—"}
-            color="bg-indigo-100"
-          />
-        </div>
-      )}
+        {/* Recent Transactions Table */}
+        <RecentTransactionsTable transactions={dashboardData.recentTransactions} />
+      </div>
+
+      {/* 5. System Inventory & Infrastructure Compact Bar */}
+      <SystemInventoryBar stats={adminStats} isLoading={isLoadingStats} />
     </div>
   )
 }
+
+export default AdminDashboard
