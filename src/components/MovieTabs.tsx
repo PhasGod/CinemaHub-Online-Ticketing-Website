@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { adminGetMovies, type Movie } from "../services/admin.service"
 import { MovieCard, TrailerModal, type MovieCardData } from "./MovieCard"
+import { ShowtimeBookingModal } from "./ShowtimeBookingModal"
 import { ScrollReveal } from "./ScrollReveal"
 
 type MovieStatus = "now-showing" | "coming-soon" | "special-screening"
@@ -48,7 +49,7 @@ export function MovieTabs() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
   const [trailerMovie, setTrailerMovie] = useState<MovieCardData | null>(null)
-  const [bookingMessage, setBookingMessage] = useState("")
+  const [bookingMovie, setBookingMovie] = useState<MovieCardData | null>(null)
 
   useEffect(() => {
     let active = true
@@ -72,7 +73,7 @@ export function MovieTabs() {
 
   const selectTab = (tab: MovieStatus) => {
     setActiveTab(tab)
-    setBookingMessage("")
+    setBookingMovie(null)
   }
 
   return (
@@ -95,11 +96,11 @@ export function MovieTabs() {
                 {filteredMovies.map((movie, index) => (
                   <ScrollReveal key={movie.id} delay={index * 0.12}>
                     <MovieCard movie={movie} onPlayTrailer={setTrailerMovie}
-                      onBuyTicket={(selectedMovie) => setBookingMessage(`Bạn đã chọn mua vé cho “${selectedMovie.title}”.`)} />
+                      onBuyTicket={(selectedMovie) => setBookingMovie(selectedMovie)} />
                   </ScrollReveal>
                 ))}
               </div>}
-        {bookingMessage && <p className="cinema-booking-message" role="status">{bookingMessage}</p>}
+        <ShowtimeBookingModal movie={bookingMovie} onClose={() => setBookingMovie(null)} />
       </div>
 
       <TrailerModal movie={trailerMovie} onClose={() => setTrailerMovie(null)} />

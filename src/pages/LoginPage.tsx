@@ -2,6 +2,7 @@ import React, { useState, FormEvent } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate, Link, Navigate } from "react-router-dom"
 import { ArrowRight, Loader2, Clapperboard } from "lucide-react"
+import { AuthModal } from "../components/AuthModal"
 
 export function LoginPage() {
   const { login, user } = useAuth()
@@ -10,11 +11,12 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showForgotModal, setShowForgotModal] = useState(false)
 
   if (user) {
     return (
       <Navigate
-        to={user.role === "admin" ? "/admin" : "/"}
+        to={user.role.toLowerCase() === "admin" ? "/admin" : user.role.toLowerCase() === "staff" ? "/staff" : "/"}
         replace
       />
     )
@@ -31,9 +33,16 @@ export function LoginPage() {
         password,
       })
 
-      navigate(loggedUser.role === "admin" ? "/admin" : "/", {
-        replace: true,
-      })
+      navigate(
+        loggedUser.role.toLowerCase() === "admin"
+          ? "/admin"
+          : loggedUser.role.toLowerCase() === "staff"
+          ? "/staff"
+          : "/",
+        {
+          replace: true,
+        },
+      )
     } catch (err: any) {
       setError(err.message || "Đăng nhập thất bại")
     } finally {
@@ -43,6 +52,13 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      {showForgotModal && (
+        <AuthModal
+          initialMode="forgot"
+          onClose={() => setShowForgotModal(false)}
+        />
+      )}
+
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-8">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold text-blue-600 mb-2">
@@ -112,6 +128,19 @@ export function LoginPage() {
               required
               className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
             />
+          </div>
+
+          <div className="flex items-center justify-between text-xs pt-1">
+            <label className="flex items-center gap-1.5 text-slate-600 cursor-pointer">
+              <input type="checkbox" defaultChecked /> Ghi nhớ đăng nhập
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(true)}
+              className="text-blue-600 hover:underline font-semibold"
+            >
+              Quên mật khẩu?
+            </button>
           </div>
 
           {error && <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">{error}</p>}
