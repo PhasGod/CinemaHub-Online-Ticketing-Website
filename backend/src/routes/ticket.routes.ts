@@ -5,6 +5,7 @@ import {
   checkInTicket,
   getStaffStats,
   searchStaffTickets,
+  resendTicketEmail,
 } from "../controllers/ticket.controller.js"
 import { authenticate, requireRole } from "../middleware/auth.js"
 
@@ -16,6 +17,10 @@ router.get("/my-tickets", authenticate, getMyTickets)
 // Staff stats & search (Must be before /:ticketCode)
 router.get("/staff/stats", authenticate, requireRole("admin", "staff"), getStaffStats)
 router.get("/staff/search", authenticate, requireRole("admin", "staff"), searchStaffTickets)
+
+// Resend ticket email
+router.post("/send-email", authenticate, resendTicketEmail)
+router.post("/:ticketCode/send-email", authenticate, resendTicketEmail)
 
 // Lookup ticket by code
 router.get("/verify/:ticketCode", getTicketByCode)

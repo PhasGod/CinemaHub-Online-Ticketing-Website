@@ -49,3 +49,34 @@ npm test
 ```
 
 Xem `docs/sprint1-status.md` và `docs/sprint1-acceptance.md` để biết kết quả và các kiểm tra nghiệm thu cần xác nhận.
+
+
+## Cổng thanh toán MoMo Sandbox (Sprint 2)
+
+### 1. Cấu hình biến môi trường trong `backend/.env`
+Truy cập trang [MoMo Developer Portal](https://developers.momo.vn/) để lấy thông tin tài khoản thử nghiệm Sandbox của bạn và điền vào `backend/.env`:
+```env
+MOMO_PARTNER_CODE=your_partner_code
+MOMO_ACCESS_KEY=your_access_key
+MOMO_SECRET_KEY=your_secret_key
+MOMO_ENDPOINT=https://test-payment.momo.vn/v2/gateway/api/create
+MOMO_REDIRECT_URL=http://localhost:8443/booking/success
+MOMO_IPN_URL=https://your-public-tunnel-domain.trycloudflare.com/api/payments/momo/ipn
+```
+
+### 2. Thiết lập Public URL cho IPN Callback bằng Cloudflare Tunnel (Miễn phí)
+Khi chạy ở môi trường local, máy chủ MoMo không thể gọi trực tiếp về `http://localhost:3000`. Bạn có thể sử dụng Cloudflare Tunnel để tạo URL công khai hoàn toàn miễn phí:
+
+1. **Khởi chạy Cloudflare Tunnel:**
+   ```powershell
+   # Tải và chạy tunnel chuyển tiếp cổng backend 3000 ra Internet:
+   cloudflared tunnel --url http://localhost:3000
+   ```
+2. **Cập nhật URL vào `backend/.env`:**
+   Cloudflare Tunnel sẽ cấp một đường dẫn công khai dạng `https://xxxx-xxxx.trycloudflare.com`.
+   Cập nhật biến `MOMO_IPN_URL` trong file `backend/.env`:
+   ```env
+   MOMO_IPN_URL=https://xxxx-xxxx.trycloudflare.com/api/payments/momo/ipn
+   ```
+3. **Cơ chế Polling dự phòng thông minh:**
+   Ngay cả khi chưa mở Tunnel công khai, giao diện Frontend vẫn liên tục Polling trạng thái giao dịch qua API `GET /api/payments/momo/status/:orderId`. Ngay khi khách hàng quét mã và thanh toán thành công trên MoMo, backend sẽ tra cứu đối soát trực tiếp và cấp vé điện tử ngay tức khắc.

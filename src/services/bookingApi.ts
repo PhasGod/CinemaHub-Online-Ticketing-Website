@@ -100,6 +100,10 @@ export async function payBooking(
       method: payload.method || "MOCK",
       showtimeId: payload.showtimeId,
       seatIds: payload.seatIds,
+      amount: payload.amount !== undefined ? Number(String(payload.amount).replace(/[^\d.-]/g, "")) : undefined,
+      totalAmount: payload.totalAmount !== undefined ? Number(String(payload.totalAmount).replace(/[^\d.-]/g, "")) : undefined,
+      discountAmount: payload.discountAmount !== undefined ? Number(String(payload.discountAmount).replace(/[^\d.-]/g, "")) : undefined,
+      voucherCode: payload.voucherCode ? String(payload.voucherCode) : undefined,
     }),
   })
 }
@@ -156,4 +160,51 @@ export async function staffSearchTickets(query: string): Promise<{ tickets: Tick
 
 export async function staffGetStats(): Promise<StaffStatsResponse> {
   return apiFetch<StaffStatsResponse>("/tickets/staff/stats")
+}
+
+
+// MoMo Sandbox Payment APIs
+export interface CreateMomoPaymentResult {
+  message: string
+  bookingId: string
+  bookingCode: string
+  amount: number
+  orderId: string
+  requestId: string
+  payUrl: string
+  deeplink?: string
+  qrCodeUrl: string
+  isSimulation?: boolean
+}
+
+export interface MomoPaymentStatusResult {
+  status: "PENDING" | "SUCCESS" | "FAILED"
+  bookingStatus: string
+  message: string
+  booking?: BookingDetail
+  payment?: any
+  tickets?: TicketItem[]
+}
+
+export async function createMomoPaymentApi(
+  bookingId: string | number,
+  amount?: number,
+): Promise<CreateMomoPaymentResult> {
+  return apiFetch<CreateMomoPaymentResult>("/payments/momo/create", {
+    method: "POST",
+    body: JSON.stringify({
+      bookingId: String(bookingId),
+      amount: amount !== undefined ? Number(amount) : undefined,
+    }),
+  })
+}
+
+export async function getMomoPaymentStatusApi(
+  orderId: string,
+  bookingId?: string,
+): Promise<MomoPaymentStatusResult> {
+  const query = bookingId ? `?bookingId=${encodeURIComponent(bookingId)}` : ""
+  return apiFetch<MomoPaymentStatusResult>(
+    `/payments/momo/status/${encodeURIComponent(orderId)}${query}`,
+  )
 }

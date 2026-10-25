@@ -73,10 +73,14 @@ export interface HoldSeatsResult {
 }
 
 export interface PayBookingPayload {
-  method?: "MOCK" | "SANDBOX"
+  method?: "MOCK" | "MOMO" | "SANDBOX" | string
   result?: "SUCCESS" | "FAILED"
   showtimeId?: string
   seatIds?: (string | number)[]
+  amount?: number
+  totalAmount?: number
+  discountAmount?: number
+  voucherCode?: string
 }
 
 export interface TicketItem {

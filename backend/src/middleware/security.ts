@@ -3,6 +3,10 @@ import { Request, Response, NextFunction } from "express"
 export function csrfProtection(allowedOrigins: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next()
+    // Bỏ qua kiểm tra CSRF đối với webhook/IPN callback từ cổng thanh toán (MoMo)
+    if (req.path.includes("/momo/ipn") || req.originalUrl.includes("/momo/ipn")) {
+      return next()
+    }
     const origin = req.get("Origin")
     if (req.get("X-CinemaHub-Request") !== "1" || (origin && !allowedOrigins.includes(origin))) {
       return res.status(403).json({ error: "Yêu cầu không hợp lệ. Vui lòng tải lại trang." })

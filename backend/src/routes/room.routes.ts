@@ -1,6 +1,7 @@
 import { Router } from "express"
 import {
   getCinemas,
+  createCinema,
   getRooms,
   getRoomById,
   createRoom,
@@ -18,6 +19,7 @@ const router = Router()
 
 // Public routes for cinema & room inspection
 router.get("/cinemas", getCinemas)
+router.post("/cinemas", authenticate, requireRole("admin"), createCinema)
 router.get("/rooms", getRooms)
 router.get("/rooms/:id", getRoomById)
 router.get("/rooms/:roomId/seats", getSeatsByRoom)
