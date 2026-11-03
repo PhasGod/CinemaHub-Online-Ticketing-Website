@@ -1,0 +1,261 @@
+import { apiFetch } from "./api"
+import {
+  ShowtimeItem,
+  ShowtimeSeatsResponse,
+  HoldSeatsResult,
+  PayBookingPayload,
+  TicketItem,
+  BookingDetail,
+} from "../types/booking"
+
+export interface GetShowtimesParams {
+  movieId?: number | string
+  date?: string
+  cinemaId?: number | string
+}
+
+export interface ReleaseSeatsExtra {
+  showtimeId?: string | number
+  seatIds?: (string | number)[]
+}
+
+export interface PayBookingResult {
+  message: string
+  booking: BookingDetail
+  tickets: TicketItem[]
+}
+
+export interface CreateShowtimeInput {
+  movieId: string
+  roomId: string
+  startTime: string
+  endTime: string
+  price: number
+}
+
+export interface CreateShowtimeResult {
+  message: string
+  showtime: any
+  seatsCreated: number
+}
+
+export async function getShowtimes(params: GetShowtimesParams = {}): Promise<{ showtimes: ShowtimeItem[] }> {
+  const query = new URLSearchParams()
+  if (params.movieId) query.append("movieId", String(params.movieId))
+  if (params.date) query.append("date", params.date)
+  if (params.cinemaId) query.append("cinemaId", String(params.cinemaId))
+
+  const queryString = query.toString() ? `?${query.toString()}` : ""
+  return apiFetch<{ showtimes: ShowtimeItem[] }>(`/showtimes${queryString}`)
+}
+
+export async function getShowtimeById(showtimeId: string | number): Promise<{ showtime: ShowtimeItem }> {
+  return apiFetch<{ showtime: ShowtimeItem }>(`/showtimes/${showtimeId}`)
+}
+
+export async function getShowtimeSeats(showtimeId: number | string): Promise<ShowtimeSeatsResponse> {
+  return apiFetch<ShowtimeSeatsResponse>(`/showtimes/${showtimeId}/seats`)
+}
+
+export async function holdSeats(
+  showtimeId: number | string,
+  seatIds: (number | string)[]
+): Promise<HoldSeatsResult> {
+  return apiFetch<HoldSeatsResult>("/bookings/hold", {
+    method: "POST",
+    body: JSON.stringify({
+      showtimeId: String(showtimeId),
+      seatIds,
+    }),
+  })
+}
+
+export async function releaseSeats(
+  bookingId?: number | string,
+  extra?: ReleaseSeatsExtra
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/bookings/release", {
+    method: "POST",
+    body: JSON.stringify({
+      bookingId: bookingId ? String(bookingId) : undefined,
+      showtimeId: extra?.showtimeId ? String(extra.showtimeId) : undefined,
+      seatIds: extra?.seatIds,
+    }),
+  })
+}
+
+export async function payBooking(
+  bookingId: number | string,
+  payload: PayBookingPayload = { method: "MOCK", result: "SUCCESS" }
+): Promise<PayBookingResult> {
+  if (payload.result === "FAILED") {
+    // Nếu chọn giả lập thất bại / hủy bỏ -> giải phóng ghế
+    await releaseSeats(bookingId, { showtimeId: payload.showtimeId, seatIds: payload.seatIds })
+    throw new Error("Đơn đặt vé đã bị hủy bỏ theo yêu cầu của bạn.")
+  }
+
+  return apiFetch<PayBookingResult>(`/bookings/${bookingId}/pay`, {
+    method: "POST",
+    body: JSON.stringify({
+      method: payload.method || "MOCK",
+      showtimeId: payload.showtimeId,
+      seatIds: payload.seatIds,
+      amount: payload.amount !== undefined ? Number(String(payload.amount).replace(/[^\d.-]/g, "")) : undefined,
+      totalAmount: payload.totalAmount !== undefined ? Number(String(payload.totalAmount).replace(/[^\d.-]/g, "")) : undefined,
+      discountAmount: payload.discountAmount !== undefined ? Number(String(payload.discountAmount).replace(/[^\d.-]/g, "")) : undefined,
+      voucherCode: payload.voucherCode ? String(payload.voucherCode) : undefined,
+    }),
+  })
+}
+
+export async function getMyTickets(): Promise<{ tickets: TicketItem[] }> {
+  return apiFetch<{ tickets: TicketItem[] }>("/tickets/my-tickets")
+}
+
+export async function getBookingById(bookingId: string | number): Promise<{ booking: BookingDetail }> {
+  return apiFetch<{ booking: BookingDetail }>(`/bookings/${bookingId}`)
+}
+
+// Admin / Staff APIs
+export async function adminCreateShowtime(data: CreateShowtimeInput): Promise<CreateShowtimeResult> {
+  return apiFetch<CreateShowtimeResult>("/showtimes", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function adminCancelShowtime(showtimeId: string | number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/showtimes/${showtimeId}/cancel`, {
+    method: "PATCH",
+  })
+}
+
+export async function adminBatchCancelShowtimes(
+  ids: string[]
+): Promise<{ message: string; successCount: number; failedCount?: number }> {
+  try {
+    return await apiFetch<{ message: string; successCount: number; failedCount?: number }>(
+      "/showtimes/batch-cancel",
+      {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      }
+    )
+  } catch {
+    // Fallback nếu API batch gặp sự cố: gọi tuần tự từng suất chiếu
+    let successCount = 0
+    let failedCount = 0
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          await adminCancelShowtime(id)
+          successCount++
+        } catch {
+          failedCount++
+        }
+      })
+    )
+    return {
+      message: `Đã hủy thành công ${successCount} suất chiếu!`,
+      successCount,
+      failedCount,
+    }
+  }
+}
+
+// Staff Portal APIs
+export interface StaffStatsResponse {
+  stats: {
+    todayShowtimesCount: number
+    ticketsSoldToday: number
+    ticketsCheckedInToday: number
+    checkInRate: number
+  }
+  todayShowtimes: ShowtimeItem[]
+  upcomingShowtimes: ShowtimeItem[]
+}
+
+export interface CheckInMaskedData {
+  movieTitle: string
+  roomName: string
+  showTime: string
+  showDate: string
+  seats: string[]
+  format: string
+  customerName: string
+}
+
+export interface StaffCheckInResponse {
+  success: boolean
+  message: string
+  data?: CheckInMaskedData
+  ticket?: TicketItem
+  error?: string
+}
+
+export async function staffCheckInTicket(ticketCode: string): Promise<StaffCheckInResponse> {
+  return apiFetch<StaffCheckInResponse>("/staff/tickets/check-in", {
+    method: "POST",
+    body: JSON.stringify({ ticketCode }),
+  })
+}
+
+export async function staffGetTicketByCode(ticketCode: string): Promise<{ ticket: TicketItem }> {
+  return apiFetch<{ ticket: TicketItem }>(`/tickets/${encodeURIComponent(ticketCode)}`)
+}
+
+export async function staffSearchTickets(query: string): Promise<{ tickets: TicketItem[] }> {
+  const q = encodeURIComponent(query)
+  return apiFetch<{ tickets: TicketItem[] }>(`/tickets/staff/search?q=${q}`)
+}
+
+export async function staffGetStats(): Promise<StaffStatsResponse> {
+  return apiFetch<StaffStatsResponse>("/tickets/staff/stats")
+}
+
+
+// MoMo Sandbox Payment APIs
+export interface CreateMomoPaymentResult {
+  message: string
+  bookingId: string
+  bookingCode: string
+  amount: number
+  orderId: string
+  requestId: string
+  payUrl: string
+  deeplink?: string
+  qrCodeUrl: string
+  isSimulation?: boolean
+}
+
+export interface MomoPaymentStatusResult {
+  status: "PENDING" | "SUCCESS" | "FAILED"
+  bookingStatus: string
+  message: string
+  booking?: BookingDetail
+  payment?: any
+  tickets?: TicketItem[]
+}
+
+export async function createMomoPaymentApi(
+  bookingId: string | number,
+  amount?: number,
+): Promise<CreateMomoPaymentResult> {
+  return apiFetch<CreateMomoPaymentResult>("/payments/momo/create", {
+    method: "POST",
+    body: JSON.stringify({
+      bookingId: String(bookingId),
+      amount: amount !== undefined ? Number(amount) : undefined,
+    }),
+  })
+}
+
+export async function getMomoPaymentStatusApi(
+  orderId: string,
+  bookingId?: string,
+): Promise<MomoPaymentStatusResult> {
+  const query = bookingId ? `?bookingId=${encodeURIComponent(bookingId)}` : ""
+  return apiFetch<MomoPaymentStatusResult>(
+    `/payments/momo/status/${encodeURIComponent(orderId)}${query}`,
+  )
+}
