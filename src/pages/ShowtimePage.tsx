@@ -160,7 +160,7 @@ export default function ShowtimePage() {
         console.error("Không thể tải danh sách cụm rạp:", err)
         if (!active) return
         // Dữ liệu dự phòng chuẩn hóa theo hệ thống 5TOP Cinema
-        const fallbackList: Cinema[] = [
+        const fallbackList: any[] = [
           {
             id: "bien-hoa",
             name: "5TOP CINEMA Biên Hòa",

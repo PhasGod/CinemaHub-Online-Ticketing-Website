@@ -94,6 +94,7 @@ export default function MovieDetailPage() {
     return () => { active = false }
   }, [id])
 
+
   // ── Loading / Error states ───────────────────────────────────────────────────
   if (loading) {
     return (
@@ -117,6 +118,10 @@ export default function MovieDetailPage() {
 
   const genresText = movie.genres.map((g) => g.name).join(", ") || "Đang cập nhật"
   const releaseDateFmt = formatDate(movie.releaseDate)
+  const isUpcoming =
+    movie.status === "coming_soon" ||
+    (movie.status as string) === "UPCOMING" ||
+    Boolean(movie.releaseDate && new Date(movie.releaseDate).getTime() > Date.now())
 
   const movieCardData: MovieCardData = {
     id: movie.id,
@@ -248,24 +253,44 @@ export default function MovieDetailPage() {
                   </button>
                 )}
 
-                <Link
-                  to={`/showtimes?movieId=${movie.id}`}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#fb7185] hover:bg-[#f43f5e] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-rose-900/20 transition-all hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
-                >
-                  <Ticket size={16} />
-                  Đặt vé ngay
-                </Link>
+                {isUpcoming ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-300 text-slate-500 px-5 py-2.5 text-sm font-bold opacity-75 cursor-not-allowed shadow-none select-none"
+                    aria-disabled="true"
+                    title="Phim sắp khởi chiếu, chưa mở bán vé"
+                  >
+                    <Ticket size={16} />
+                    COMING SOON
+                  </button>
+                ) : (
+                  <Link
+                    to={`/showtimes?movieId=${movie.id}`}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#fb7185] hover:bg-[#f43f5e] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-rose-900/20 transition-all hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
+                  >
+                    <Ticket size={16} />
+                    Đặt vé ngay
+                  </Link>
+                )}
               </div>
 
-              {/* Booking link */}
-              <p className="mt-4 text-sm text-[#0a4d92]">
-                <Link
-                  to={`/showtimes?movieId=${movie.id}`}
-                  className="font-semibold underline underline-offset-2 hover:text-[#063a80] transition-colors"
-                >
-                  Xem các suất chiếu và Đặt vé trực tuyến ngay →
-                </Link>
-              </p>
+              {/* Booking link / notice */}
+              {isUpcoming ? (
+                <p className="mt-4 text-sm text-slate-500 flex items-center gap-1.5">
+                  <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                  Phim sắp khởi chiếu. Hệ thống sẽ mở đặt vé trước ngày khởi chiếu, vui lòng quay lại sau!
+                </p>
+              ) : (
+                <p className="mt-4 text-sm text-[#0a4d92]">
+                  <Link
+                    to={`/showtimes?movieId=${movie.id}`}
+                    className="font-semibold underline underline-offset-2 hover:text-[#063a80] transition-colors"
+                  >
+                    Xem các suất chiếu và Đặt vé trực tuyến ngay →
+                  </Link>
+                </p>
+              )}
             </div>
           </div>
         </div>

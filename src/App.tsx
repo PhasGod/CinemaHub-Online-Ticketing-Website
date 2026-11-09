@@ -1891,7 +1891,7 @@ function SiteLayout() {
   }
 
   return (
-    <>
+    <div className="overflow-x-hidden w-full max-w-full pt-safe pb-safe">
       {!isStaffRoute && <Navbar onOpenLogin={() => setLoginOpen(true)} />}
       <Routes>
         <Route path="/" element={<CinemaHomePage />} />
@@ -1978,7 +1978,7 @@ function SiteLayout() {
           onAuthenticated={handleAuthenticated}
         />
       )}
-    </>
+    </div>
   )
 }
 

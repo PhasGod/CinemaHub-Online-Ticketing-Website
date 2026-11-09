@@ -674,9 +674,9 @@ export function CheckInStation() {
       {/* 3. MODAL QUÉT CAMERA THỜI GIAN THỰC (html5-qrcode)         */}
       {/* ========================================================= */}
       {isCameraModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[95dvh]">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Camera size={18} className="text-rose-500" />
                 <h3 className="font-bold text-slate-800 text-sm">
@@ -692,24 +692,33 @@ export function CheckInStation() {
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto">
               {/* Vùng hiển thị camera quét QR */}
-              <div
-                id="qr-reader-viewport"
-                className="w-full aspect-square rounded-2xl overflow-hidden bg-black border-2 border-emerald-500/40"
-              />
+              <div className="relative mx-auto w-[250px] h-[250px] aspect-square rounded-2xl overflow-hidden bg-black shadow-inner">
+                <div
+                  id="qr-reader-viewport"
+                  className="absolute inset-0 rounded-2xl overflow-hidden bg-black"
+                />
+                {/* Viewfinder corners + laser */}
+                <div className="qr-viewfinder absolute inset-0 pointer-events-none">
+                  <span className="corner-bl absolute inset-0" />
+                  <span className="corner-br absolute inset-0" />
+                  <div className="qr-laser-line laser-line" />
+                </div>
+              </div>
 
-              <p className="text-xs text-center text-slate-500">
+              <p className="text-xs sm:text-sm text-center text-gray-500 px-2">
                 Căn chỉnh mã QR trên vé hoặc điện thoại của khách vào giữa khung hình để hệ thống tự động nhận diện.
               </p>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <div className="p-4 bg-slate-50 border-t border-slate-100 shrink-0 pb-safe">
               <button
                 type="button"
                 onClick={stopCameraScanner}
-                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
+                className="w-full min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white font-bold text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
               >
+                <CameraOff size={16} />
                 Đóng camera
               </button>
             </div>

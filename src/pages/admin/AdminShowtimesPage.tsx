@@ -402,14 +402,14 @@ function CreateShowtimeModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 md:p-8 max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col my-auto overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-100">
+        <div className="flex items-center justify-between px-6 md:px-8 py-5 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
           <div>
             <h3 className="text-xl font-bold text-slate-900">
               Tạo suất chiếu mới
@@ -426,22 +426,22 @@ function CreateShowtimeModal({
           </button>
         </div>
 
-        {error && (
-          <div className="mb-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5">
-            <AlertTriangle
-              size={18}
-              className="shrink-0 text-rose-600 mt-0.5"
-            />
-            <div>
-              <p className="font-bold text-rose-900">
-                Không thể tạo suất chiếu
-              </p>
-              <p className="mt-0.5">{error}</p>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4 text-slate-700">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden text-slate-700">
+          <div className="overflow-y-auto px-6 md:px-8 py-5 space-y-4 flex-1">
+            {error && (
+              <div className="mb-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5">
+                <AlertTriangle
+                  size={18}
+                  className="shrink-0 text-rose-600 mt-0.5"
+                />
+                <div>
+                  <p className="font-bold text-rose-900">
+                    Không thể tạo suất chiếu
+                  </p>
+                  <p className="mt-0.5">{error}</p>
+                </div>
+              </div>
+            )}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
               <Film size={14} className="text-blue-600" /> Chọn Phim *
@@ -665,7 +665,9 @@ function CreateShowtimeModal({
             </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+          </div>
+
+          <div className="flex justify-end gap-3 px-6 md:px-8 py-4 border-t border-slate-100 sticky bottom-0 bg-white z-10 shrink-0">
             <button
               type="button"
               onClick={onClose}

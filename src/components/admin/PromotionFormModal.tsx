@@ -185,12 +185,12 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
       <div
-        className="relative bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 flex flex-col text-slate-800"
+        className="relative bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col my-auto overflow-hidden shadow-2xl border border-slate-200 text-slate-800"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-10">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
               <Tag size={20} />
@@ -212,8 +212,10 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
+        {/* Form Container */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          {/* Scrollable Form Body */}
+          <div className="overflow-y-auto p-6 sm:p-8 space-y-6 flex-1">
           {error && (
             <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm flex items-center gap-2.5">
               <AlertCircle size={18} className="shrink-0" />
@@ -514,8 +516,10 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          </div>
+
+          {/* Action Buttons (Sticky Footer) */}
+          <div className="p-4 sm:px-8 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white/95 backdrop-blur-sm z-10 shrink-0">
             <button
               type="button"
               disabled={isSubmitting}

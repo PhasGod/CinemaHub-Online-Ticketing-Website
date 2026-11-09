@@ -21,7 +21,7 @@ const slideVariants = {
     opacity: 1,
     scale: 1,
     transition: {
-      x: { type: "spring", stiffness: 280, damping: 30 },
+      x: { type: "spring" as const, stiffness: 280, damping: 30 },
       opacity: { duration: 0.4 },
       scale: { duration: 0.4 },
     },
@@ -31,7 +31,7 @@ const slideVariants = {
     opacity: 0,
     scale: 0.98,
     transition: {
-      x: { type: "spring", stiffness: 280, damping: 30 },
+      x: { type: "spring" as const, stiffness: 280, damping: 30 },
       opacity: { duration: 0.3 },
       scale: { duration: 0.3 },
     },
@@ -82,7 +82,7 @@ export function PromotionCarousel({
 
   return (
     <div
-      className="relative w-full aspect-[16/8] sm:aspect-[16/7] md:aspect-[21/9] min-h-[300px] max-h-[500px] rounded-3xl overflow-hidden bg-slate-950 shadow-2xl shadow-blue-950/20 border border-slate-200/80 group select-none"
+      className="relative w-full max-w-full aspect-[16/8] sm:aspect-[16/7] md:aspect-[21/9] min-h-[300px] max-h-[500px] rounded-3xl overflow-hidden bg-slate-950 shadow-2xl shadow-blue-950/20 border border-slate-200/80 group select-none touch-pan-x"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       aria-label="Khuyến mãi nổi bật 5TOP Cinema"

@@ -96,7 +96,9 @@ export function MovieTabs() {
                 {filteredMovies.map((movie, index) => (
                   <ScrollReveal key={movie.id} delay={index * 0.12}>
                     <MovieCard movie={movie} onPlayTrailer={setTrailerMovie}
-                      onBuyTicket={(selectedMovie) => setBookingMovie(selectedMovie)} />
+                      onBuyTicket={(selectedMovie) => {
+                        if (selectedMovie.status !== "coming-soon") setBookingMovie(selectedMovie)
+                      }} />
                   </ScrollReveal>
                 ))}
               </div>}

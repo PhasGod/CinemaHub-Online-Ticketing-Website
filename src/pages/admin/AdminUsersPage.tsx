@@ -77,66 +77,68 @@ function UserModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
           <h3 className="text-lg font-bold text-slate-800">
             {isEdit ? "Chỉnh sửa tài khoản" : "Thêm nhân viên mới"}
           </h3>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Họ và tên *</label>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} required
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-          </div>
-
-          {!isEdit && (
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="overflow-y-auto px-6 py-4 space-y-4 flex-1">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Email *</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Họ và tên *</label>
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} required
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+            </div>
+
+            {!isEdit && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Email *</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
+              <input value={phone} onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Số điện thoại</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-
-          {!isEdit && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu *</label>
-              <div className="relative">
-                <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 pr-10 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                <button type="button" onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+            {!isEdit && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu *</label>
+                <div className="relative">
+                  <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 pr-10 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <button type="button" onClick={() => setShowPw(!showPw)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Vai trò</label>
-            <select value={role} onChange={(e) => setRole(e.target.value as "staff" | "admin")}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-              <option value="staff">Nhân viên rạp</option>
-              <option value="admin">Quản trị viên</option>
-            </select>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Vai trò</label>
+              <select value={role} onChange={(e) => setRole(e.target.value as "staff" | "admin")}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                <option value="staff">Nhân viên rạp</option>
+                <option value="admin">Quản trị viên</option>
+              </select>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-xl">
+                <AlertCircle size={16} className="shrink-0" />{error}
+              </div>
+            )}
           </div>
 
-          {error && (
-            <div className="flex items-center gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-xl">
-              <AlertCircle size={16} className="shrink-0" />{error}
-            </div>
-          )}
-
-          <div className="flex gap-3 pt-2">
+          <div className="px-6 py-4 border-t border-slate-100 flex gap-3 sticky bottom-0 bg-white z-10 shrink-0">
             <button type="button" onClick={onClose}
               className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">
               Hủy
