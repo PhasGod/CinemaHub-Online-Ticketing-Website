@@ -14,7 +14,7 @@ const tabs: Array<{ id: MovieStatus; label: string }> = [
 ]
 
 const specialScreeningSlugs = new Set([
-  "interstellar-special", "your-name-special", "la-la-land-special", "spirited-away-special",
+  "interstellar-special", "your-name-special", "la-la-land-special",
 ])
 
 function toDisplayMovie(movie: Movie): MovieCardData {
@@ -96,7 +96,9 @@ export function MovieTabs() {
                 {filteredMovies.map((movie, index) => (
                   <ScrollReveal key={movie.id} delay={index * 0.12}>
                     <MovieCard movie={movie} onPlayTrailer={setTrailerMovie}
-                      onBuyTicket={(selectedMovie) => setBookingMovie(selectedMovie)} />
+                      onBuyTicket={(selectedMovie) => {
+                        if (selectedMovie.status !== "coming-soon") setBookingMovie(selectedMovie)
+                      }} />
                   </ScrollReveal>
                 ))}
               </div>}

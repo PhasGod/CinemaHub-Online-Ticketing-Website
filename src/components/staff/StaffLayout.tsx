@@ -35,7 +35,7 @@ export function StaffLayout() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col overflow-x-hidden w-full max-w-full">
       {/* Top Staff App Bar */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
         <div className="container max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
@@ -113,7 +113,7 @@ export function StaffLayout() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full pb-safe">
         <Outlet />
       </main>
     </div>

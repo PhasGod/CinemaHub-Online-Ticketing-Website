@@ -97,25 +97,32 @@ export async function getTicketByCode(req: Request, res: Response) {
   }
 }
 
-// POST /api/tickets/check-in (Chỉ Nhân viên / Quản trị viên)
+// POST /api/tickets/check-in & POST /api/staff/tickets/check-in (Chỉ Nhân viên / Quản trị viên)
 export async function checkInTicket(req: AuthRequest, res: Response) {
   try {
-    const { ticketCode } = req.body
-    if (!ticketCode) {
+    const rawCode = (req.body.ticketCode || "").trim()
+    if (!rawCode) {
       return res
         .status(400)
-        .json({ error: "Vui lòng cung cấp mã vé (ticketCode)" })
+        .json({ success: false, error: "Vui lòng cung cấp mã vé (ticketCode)" })
     }
 
-    const ticket = await prisma.ticket.findUnique({
-      where: { ticketCode },
+    // 1. Tìm vé theo ticketCode (hoặc mã đơn đặt vé bookingCode)
+    let ticket = await prisma.ticket.findUnique({
+      where: { ticketCode: rawCode },
       include: {
         booking: {
           include: {
             user: {
               select: {
+                id: true,
                 fullName: true,
                 phone: true,
+              },
+            },
+            tickets: {
+              include: {
+                seat: true,
               },
             },
           },
@@ -134,29 +141,124 @@ export async function checkInTicket(req: AuthRequest, res: Response) {
       },
     })
 
+    // Nếu không thấy theo ticketCode, thử tìm theo bookingCode
     if (!ticket) {
-      return res.status(404).json({ error: "Không tìm thấy vé trong hệ thống" })
+      const booking = await prisma.booking.findUnique({
+        where: { bookingCode: rawCode },
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+            },
+          },
+          tickets: {
+            include: {
+              seat: true,
+              showtime: {
+                include: {
+                  movie: true,
+                  room: {
+                    include: {
+                      cinema: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      })
+
+      if (booking && booking.tickets.length > 0) {
+        // Chọn vé chưa soát hoặc vé đầu tiên trong đơn
+        const chosenTicket =
+          booking.tickets.find((t) => t.status !== "USED") || booking.tickets[0]
+        ticket = {
+          ...chosenTicket,
+          booking: {
+            ...booking,
+            tickets: booking.tickets,
+          },
+        } as any
+      }
     }
 
-    if (ticket.status === "USED") {
+    // Nếu vẫn không thấy, trả về 404: "Vé không tồn tại"
+    if (!ticket) {
+      return res.status(404).json({ success: false, error: "Vé không tồn tại" })
+    }
+
+    // 2. Kiểm tra trạng thái đơn đặt vé: Bắt buộc phải là 'PAID' / 'SUCCESS' (trong DB là COMPLETED)
+    if (ticket.booking.status !== "COMPLETED") {
       return res.status(400).json({
-        error: `Vé này đã được soát lúc ${ticket.checkedInAt?.toLocaleString("vi-VN")}`,
-        ticket,
+        success: false,
+        error: "Đơn hàng chưa thanh toán",
       })
     }
 
+    // 3. Kiểm tra chống quét trùng (Double Check-in)
+    if (ticket.status === "USED" || ticket.checkedInAt) {
+      const checkedInTimeStr = ticket.checkedInAt
+        ? new Date(ticket.checkedInAt).toLocaleString("vi-VN", {
+            timeZone: "Asia/Ho_Chi_Minh",
+          })
+        : "trước đó"
+      const staffName = req.user?.fullName || "Nhân viên trực ca"
+
+      return res.status(409).json({
+        success: false,
+        error: `Vé này đã được soát vào lúc ${checkedInTimeStr} bởi nhân viên ${staffName}`,
+        checkedInAt: ticket.checkedInAt,
+        staffName,
+      })
+    }
+
+    // Kiểm tra vé bị hủy
     if (ticket.status === "CANCELLED") {
       return res.status(400).json({
+        success: false,
         error: "Vé này đã bị hủy, không thể sử dụng",
-        ticket,
       })
     }
 
+    // 4. Kiểm tra thời gian: Xác thực ngày chiếu và giờ chiếu có hợp lệ trong ngày hôm nay hay không
+    const showtimeStart = new Date(ticket.showtime.startTime)
+    const now = new Date()
+
+    const toVnDateStr = (d: Date) =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(d)
+
+    const showDateStr = toVnDateStr(showtimeStart)
+    const todayStr = toVnDateStr(now)
+
+    // Suất chiếu khác ngày hôm nay
+    if (showDateStr !== todayStr) {
+      const formattedShowDate = new Intl.DateTimeFormat("vi-VN", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(showtimeStart)
+
+      return res.status(400).json({
+        success: false,
+        error: `Suất chiếu diễn ra vào ngày ${formattedShowDate}, không hợp lệ để soát vé hôm nay.`,
+      })
+    }
+
+    // 5. Cập nhật dữ liệu: Đánh dấu status = 'USED', lưu thời điểm checkedInAt = new Date()
     const updated = await prisma.ticket.update({
       where: { id: ticket.id },
       data: {
         status: "USED",
-        checkedInAt: new Date(),
+        checkedInAt: now,
       },
       include: {
         seat: true,
@@ -173,13 +275,50 @@ export async function checkInTicket(req: AuthRequest, res: Response) {
       },
     })
 
+    // 6. Data Masking (Bảo mật dữ liệu): Tuyệt đối không trả về toàn bộ dữ liệu người dùng hay lịch sử đơn khác
+    const allSeats =
+      ticket.booking.tickets
+        ?.map((t) => `${t.seat?.row || ""}${t.seat?.number || ""}`)
+        .filter(Boolean) || [
+        `${ticket.seat?.row || ""}${ticket.seat?.number || ""}`,
+      ]
+
+    const formattedTime = new Intl.DateTimeFormat("vi-VN", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(showtimeStart)
+
+    const formattedDate = new Intl.DateTimeFormat("vi-VN", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(showtimeStart)
+
+    const maskedData = {
+      movieTitle: ticket.showtime.movie.title,
+      roomName: ticket.showtime.room.name,
+      showTime: formattedTime,
+      showDate: formattedDate,
+      seats:
+        allSeats.length > 0
+          ? allSeats
+          : [`${ticket.seat.row}${ticket.seat.number}`],
+      format: ticket.showtime.movie.format || "2D",
+      customerName: ticket.booking.user?.fullName || "Khách hàng",
+    }
+
     return res.json({
-      message: "Soát vé thành công. Chúc quý khách xem phim vui vẻ!",
+      success: true,
+      message: "Soát vé thành công",
+      data: maskedData,
       ticket: updated,
     })
   } catch (error) {
     console.error("Check-in ticket error:", error)
-    return res.status(500).json({ error: "Lỗi hệ thống khi soát vé" })
+    return res.status(500).json({ success: false, error: "Lỗi hệ thống khi soát vé" })
   }
 }
 

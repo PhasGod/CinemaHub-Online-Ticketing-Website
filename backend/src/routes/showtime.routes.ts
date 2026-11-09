@@ -5,6 +5,7 @@ import {
   getShowtimeById,
   getShowtimeSeats,
   cancelShowtime,
+  batchCancelShowtimes,
 } from "../controllers/showtime.controller.js"
 import { authenticate, requireRole } from "../middleware/auth.js"
 
@@ -17,6 +18,12 @@ router.get("/:id/seats", getShowtimeSeats)
 
 // Protected Admin/Staff routes
 router.post("/", authenticate, requireRole("admin", "staff"), createShowtime)
+router.post(
+  "/batch-cancel",
+  authenticate,
+  requireRole("admin", "staff"),
+  batchCancelShowtimes,
+)
 router.patch(
   "/:id/cancel",
   authenticate,

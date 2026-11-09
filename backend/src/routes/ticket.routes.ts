@@ -26,9 +26,16 @@ router.post("/:ticketCode/send-email", authenticate, resendTicketEmail)
 router.get("/verify/:ticketCode", getTicketByCode)
 router.get("/:ticketCode", getTicketByCode)
 
-// Staff/Admin check-in
+// Staff/Admin check-in endpoints
 router.post(
   "/check-in",
+  authenticate,
+  requireRole("admin", "staff"),
+  checkInTicket,
+)
+
+router.post(
+  "/staff/tickets/check-in",
   authenticate,
   requireRole("admin", "staff"),
   checkInTicket,

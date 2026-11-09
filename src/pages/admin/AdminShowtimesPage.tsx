@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import {
   CalendarDays,
   Plus,
@@ -17,6 +17,7 @@ import {
   getShowtimes,
   adminCreateShowtime,
   adminCancelShowtime,
+  adminBatchCancelShowtimes,
 } from "../../services/bookingApi"
 import { adminGetCinemas, adminGetRooms, Cinema, Room } from "../../services/admin.service"
 import { apiFetch } from "../../services/api"
@@ -75,6 +76,49 @@ function formatToLocalDateTimeInput(date: Date): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
+// Helper: Format Date to YYYY-MM-DD
+function formatToDateInput(d: Date): string {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+// 24-Hour scale (00 -> 23) và các mốc phút (bước 5 phút)
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"))
+const MINUTES_5 = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"))
+
+// Khung giờ chiếu rạp nhanh phổ biến theo chuẩn 24H
+const QUICK_SLOTS_24H = [
+  { label: "09:30", h: "09", m: "30" },
+  { label: "11:15", h: "11", m: "15" },
+  { label: "13:30", h: "13", m: "30" },
+  { label: "15:45", h: "15", m: "45" },
+  { label: "18:00", h: "18", m: "00" },
+  { label: "19:30", h: "19", m: "30" },
+  { label: "21:15", h: "21", m: "15" },
+  { label: "22:45", h: "22", m: "45" },
+]
+
+// Helper tính giờ kết thúc tự động từ ngày + giờ bắt đầu + thời lượng phim (+15p dọn rạp)
+function computeEndFromStart(
+  showDate: string,
+  startHour: string,
+  startMinute: string,
+  durationMinutes: number
+): { endDate: string; endHour: string; endMinute: string } {
+  const s = new Date(`${showDate}T${startHour.padStart(2, "0")}:${startMinute.padStart(2, "0")}:00`)
+  if (isNaN(s.getTime())) {
+    return { endDate: showDate, endHour: "16", endMinute: "15" }
+  }
+  const e = new Date(s.getTime() + (durationMinutes + 15) * 60 * 1000)
+  return {
+    endDate: formatToDateInput(e),
+    endHour: String(e.getHours()).padStart(2, "0"),
+    endMinute: String(e.getMinutes()).padStart(2, "0"),
+  }
+}
+
 // Helper: Lấy thời lượng phim (duration hoặc runtime, mặc định 120 phút)
 function getMovieDuration(movie?: MovieOption): number {
   if (!movie) return 120
@@ -104,16 +148,64 @@ function calculateEndTime(startStr: string, durationMinutes: number): string {
 // Danh sách cụm rạp mặc định dự phòng nếu chưa có từ API
 const DEFAULT_CINEMAS: Cinema[] = [
   {
-    id: "e8eb6397-07e6-4f8d-91f3-5f7904242b6a",
+    id: "bien-hoa",
     name: "5TOP CINEMA Biên Hòa",
     location: "Biên Hòa",
-    address: "123 Đường Phạm Văn Thuận, P. Tân Tiến, Biên Hòa",
+    address: "1096 Phạm Văn Thuận, P. Tân Mai, TP. Biên Hòa, Đồng Nai",
   },
   {
-    id: "61f3a185-ee92-4647-bb65-6ed079acbbae",
-    name: "5TOP CINEMA TP.HCM (Thủ Đức)",
-    location: "TP.HCM",
-    address: "216 Võ Văn Ngân, P. Bình Thọ, TP. Thủ Đức, TP.HCM",
+    id: "long-thanh",
+    name: "5TOP Cinema Long Thành",
+    location: "Đồng Nai",
+    address: "Tầng 3 TTTM Vincom Plaza Long Thành, Đồng Nai",
+  },
+  {
+    id: "thu-duc",
+    name: "5TOP Cinema Thủ Đức",
+    location: "TP. Hồ Chí Minh",
+    address: "216 Võ Văn Ngân, P. Bình Thọ, TP. Thủ Đức, TP. HCM",
+  },
+  {
+    id: "quan-7",
+    name: "5TOP Cinema Quận 7 (Crescent Mall)",
+    location: "TP. Hồ Chí Minh",
+    address: "Tầng 5 Crescent Mall, 101 Tôn Dật Tiên, Tân Phú, Quận 7, TP. HCM",
+  },
+  {
+    id: "quan-1",
+    name: "5TOP Cinema Quận 1 (Đồng Khởi)",
+    location: "TP. Hồ Chí Minh",
+    address: "Tầng 4 Vincom Center Đồng Khởi, 72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. HCM",
+  },
+  {
+    id: "go-vap",
+    name: "5TOP Cinema Gò Vấp",
+    location: "TP. Hồ Chí Minh",
+    address: "Phan Văn Trị, Phường 7, Quận Gò Vấp, TP. HCM",
+  },
+  {
+    id: "binh-duong",
+    name: "5TOP Cinema Dĩ An",
+    location: "Bình Dương",
+    address: "Số 01 Đại lộ Bình Dương, Dĩ An, Bình Dương",
+  },
+  {
+    id: "thu-dau-mot",
+    name: "5TOP Cinema Thủ Dầu Một",
+    location: "Bình Dương",
+    address: "230 Đại lộ Bình Dương, P. Phú Hòa, TP. Thủ Dầu Một, Bình Dương",
+  },
+  {
+    id: "ba-dinh",
+    name: "5TOP Cinema Ba Đình (Liễu Giai)",
+    location: "Hà Nội",
+    address: "29 Liễu Giai, P. Ngọc Khánh, Ba Đình, Hà Nội",
+  },
+  {
+    id: "ha-dong",
+    name: "5TOP Cinema Hà Đông",
+    location: "Hà Nội",
+    address: "Tầng 4 TTTM Aeon Mall Hà Đông, P. Dương Nội, Hà Đông, Hà Nội",
   },
 ]
 
@@ -167,6 +259,16 @@ function CreateShowtimeModal({
     return availableCinemas[0]?.id || ""
   })
 
+  // Đảm bảo selectedCinemaId luôn hợp lệ khi availableCinemas thay đổi
+  useEffect(() => {
+    if (
+      availableCinemas.length > 0 &&
+      (!selectedCinemaId || !availableCinemas.some((c) => c.id === selectedCinemaId))
+    ) {
+      setSelectedCinemaId(availableCinemas[0].id)
+    }
+  }, [availableCinemas, selectedCinemaId])
+
   // 3. Danh sách phòng chiếu trực thuộc cụm rạp đã chọn
   const filteredRooms = React.useMemo(() => {
     if (!selectedCinemaId) return rooms
@@ -199,57 +301,57 @@ function CreateShowtimeModal({
     setRoomId(matchingRooms[0]?.id || "")
   }
 
-  // Khởi tạo ngày mai lúc 14:00 (giờ địa phương)
-  const [startTime, setStartTime] = useState(() => {
-    const defaultStart = new Date()
-    defaultStart.setDate(defaultStart.getDate() + 1)
-    defaultStart.setHours(14, 0, 0, 0)
-    return formatToLocalDateTimeInput(defaultStart)
+  // Khởi tạo ngày chiếu mặc định: Ngày mai lúc 14:00 (chuẩn 24 giờ)
+  const [showDate, setShowDate] = useState(() => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return formatToDateInput(tomorrow)
   })
+  const [startHour, setStartHour] = useState("14")
+  const [startMinute, setStartMinute] = useState("00")
 
-  // Tự động tính endTime ban đầu: startTime + movie.duration (phút) + 15 phút
-  const [endTime, setEndTime] = useState(() => {
-    const defaultStart = new Date()
-    defaultStart.setDate(defaultStart.getDate() + 1)
-    defaultStart.setHours(14, 0, 0, 0)
-    const startStr = formatToLocalDateTimeInput(defaultStart)
-    const initialMovie = movies.find((m) => m.id === movies[0]?.id)
-    const duration = getMovieDuration(initialMovie)
-    return calculateEndTime(startStr, duration)
-  })
+  // Tự động tính Giờ kết thúc ban đầu (thời lượng phim + 15 phút)
+  const initialMovie = movies.find((m) => m.id === movies[0]?.id)
+  const initialDuration = getMovieDuration(initialMovie)
+  const initialComputedEnd = computeEndFromStart(showDate, "14", "00", initialDuration)
+
+  const [endDate, setEndDate] = useState(initialComputedEnd.endDate)
+  const [endHour, setEndHour] = useState(initialComputedEnd.endHour)
+  const [endMinute, setEndMinute] = useState(initialComputedEnd.endMinute)
 
   const [price, setPrice] = useState("90000")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const selectedMovie = movies.find((m) => m.id === movieId)
+  const currentDuration = getMovieDuration(selectedMovie)
+
+  // Cập nhật khi đổi Giờ bắt đầu hoặc Ngày chiếu
+  const updateStartTime = (newDate: string, newH: string, newM: string) => {
+    setShowDate(newDate)
+    setStartHour(newH)
+    setStartMinute(newM)
+    const computed = computeEndFromStart(newDate, newH, newM, currentDuration)
+    setEndDate(computed.endDate)
+    setEndHour(computed.endHour)
+    setEndMinute(computed.endMinute)
+  }
+
   // Tự động cập nhật endTime khi thay đổi Phim
   const handleMovieChange = (mId: string) => {
     setMovieId(mId)
     const selected = movies.find((m) => m.id === mId)
-    if (startTime) {
-      const duration = getMovieDuration(selected)
-      const calculatedEnd = calculateEndTime(startTime, duration)
-      if (calculatedEnd) {
-        setEndTime(calculatedEnd)
-      }
-    }
+    const dur = getMovieDuration(selected)
+    const computed = computeEndFromStart(showDate, startHour, startMinute, dur)
+    setEndDate(computed.endDate)
+    setEndHour(computed.endHour)
+    setEndMinute(computed.endMinute)
   }
 
-  // Tự động cập nhật endTime khi thay đổi Giờ bắt đầu (startTime)
-  const handleStartTimeChange = (newStartTime: string) => {
-    setStartTime(newStartTime)
-    const selected = movies.find((m) => m.id === movieId)
-    if (newStartTime) {
-      const duration = getMovieDuration(selected)
-      const calculatedEnd = calculateEndTime(newStartTime, duration)
-      if (calculatedEnd) {
-        setEndTime(calculatedEnd)
-      }
-    }
+  // Chọn nhanh khung giờ chiếu rạp (24H)
+  const handleQuickSlot = (h: string, m: string) => {
+    updateStartTime(showDate, h, m)
   }
-
-  const selectedMovie = movies.find((m) => m.id === movieId)
-  const currentDuration = getMovieDuration(selectedMovie)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -260,8 +362,8 @@ function CreateShowtimeModal({
       return
     }
 
-    const sDate = new Date(startTime)
-    const eDate = new Date(endTime)
+    const sDate = new Date(`${showDate}T${startHour.padStart(2, "0")}:${startMinute.padStart(2, "0")}:00`)
+    const eDate = new Date(`${endDate}T${endHour.padStart(2, "0")}:${endMinute.padStart(2, "0")}:00`)
     if (isNaN(sDate.getTime()) || isNaN(eDate.getTime())) {
       setError("Thời gian bắt đầu hoặc kết thúc không hợp lệ")
       return
@@ -300,14 +402,14 @@ function CreateShowtimeModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 md:p-8 max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col my-auto overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-100">
+        <div className="flex items-center justify-between px-6 md:px-8 py-5 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
           <div>
             <h3 className="text-xl font-bold text-slate-900">
               Tạo suất chiếu mới
@@ -324,22 +426,22 @@ function CreateShowtimeModal({
           </button>
         </div>
 
-        {error && (
-          <div className="mb-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5">
-            <AlertTriangle
-              size={18}
-              className="shrink-0 text-rose-600 mt-0.5"
-            />
-            <div>
-              <p className="font-bold text-rose-900">
-                Không thể tạo suất chiếu
-              </p>
-              <p className="mt-0.5">{error}</p>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4 text-slate-700">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden text-slate-700">
+          <div className="overflow-y-auto px-6 md:px-8 py-5 space-y-4 flex-1">
+            {error && (
+              <div className="mb-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2.5">
+                <AlertTriangle
+                  size={18}
+                  className="shrink-0 text-rose-600 mt-0.5"
+                />
+                <div>
+                  <p className="font-bold text-rose-900">
+                    Không thể tạo suất chiếu
+                  </p>
+                  <p className="mt-0.5">{error}</p>
+                </div>
+              </div>
+            )}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
               <Film size={14} className="text-blue-600" /> Chọn Phim *
@@ -411,39 +513,137 @@ function CreateShowtimeModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
-                <Clock size={14} className="text-blue-600" /> Giờ bắt đầu *
+          {/* 3. Lựa chọn Thời gian chiếu chuẩn 24H (00:00 - 23:59) */}
+          <div className="space-y-3.5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <CalendarDays size={15} className="text-blue-600" /> Ngày chiếu *
               </label>
-              <input
-                type="datetime-local"
-                value={startTime}
-                onChange={(e) => handleStartTimeChange(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-2xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium"
-                required
-              />
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-100/80 px-2.5 py-0.5 rounded-full">
+                Khung giờ 24H (00:00 - 23:59)
+              </span>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5">
-                <Clock size={14} className="text-blue-600" /> Giờ kết thúc *
-              </label>
-              <input
-                type="datetime-local"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-2xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium"
-                required
-              />
-            </div>
-          </div>
+            <input
+              type="date"
+              value={showDate}
+              onChange={(e) => updateStartTime(e.target.value, startHour, startMinute)}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-800"
+              required
+            />
 
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 -mt-2">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
-            <span>
-              Tự động tính: Thời lượng phim ({currentDuration} phút) + 15 phút dọn rạp/quảng cáo. Có thể điều chỉnh thủ công.
-            </span>
+            {/* Khung giờ chiếu rạp nhanh phổ biến */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                Khung giờ chiếu nhanh:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_SLOTS_24H.map((slot) => {
+                  const isActive = startHour === slot.h && startMinute === slot.m
+                  return (
+                    <button
+                      key={slot.label}
+                      type="button"
+                      onClick={() => handleQuickSlot(slot.h, slot.m)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                        isActive
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {slot.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Giờ bắt đầu & Giờ kết thúc theo chuẩn 24 Giờ */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Giờ bắt đầu */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1">
+                  <Clock size={13} className="text-blue-600" /> Giờ bắt đầu (24H) *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <select
+                      value={startHour}
+                      onChange={(e) => updateStartTime(showDate, e.target.value, startMinute)}
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-sm font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 cursor-pointer"
+                    >
+                      {HOURS_24.map((h) => (
+                        <option key={h} value={h}>
+                          {h}:00 {Number(h) >= 12 ? (Number(h) >= 18 ? "(Tối)" : "(Chiều)") : "(Sáng)"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <select
+                      value={startMinute}
+                      onChange={(e) => updateStartTime(showDate, startHour, e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-sm font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 cursor-pointer"
+                    >
+                      {MINUTES_5.map((m) => (
+                        <option key={m} value={m}>
+                          {m} phút
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Giờ kết thúc */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1">
+                    <Clock size={13} className="text-blue-600" /> Giờ kết thúc (24H) *
+                  </label>
+                  {endDate !== showDate && (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                      +1 ngày ({endDate})
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <select
+                      value={endHour}
+                      onChange={(e) => setEndHour(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-sm font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 cursor-pointer"
+                    >
+                      {HOURS_24.map((h) => (
+                        <option key={h} value={h}>
+                          {h}:00 {Number(h) >= 12 ? (Number(h) >= 18 ? "(Tối)" : "(Chiều)") : "(Sáng)"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <select
+                      value={endMinute}
+                      onChange={(e) => setEndMinute(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-xl border border-slate-300 text-sm font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 cursor-pointer"
+                    >
+                      {MINUTES_5.map((m) => (
+                        <option key={m} value={m}>
+                          {m} phút
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1 border-t border-slate-200">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+              <span>
+                Tự động tính theo thời lượng phim (<b>{currentDuration} phút</b>) + 15 phút dọn rạp/quảng cáo. Có thể điều chỉnh tùy ý.
+              </span>
+            </div>
           </div>
 
           <div>
@@ -465,7 +665,9 @@ function CreateShowtimeModal({
             </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+          </div>
+
+          <div className="flex justify-end gap-3 px-6 md:px-8 py-4 border-t border-slate-100 sticky bottom-0 bg-white z-10 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -493,12 +695,18 @@ export default function AdminShowtimesPage() {
   const [movies, setMovies] = useState<MovieOption[]>([])
   const [cinemas, setCinemas] = useState<Cinema[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
+  const [filterCinemaId, setFilterCinemaId] = useState<string>("all")
   const [isLoading, setIsLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState<{
     msg: string
     type: "success" | "error"
   } | null>(null)
+
+  // Quản lý Trạng thái Thao tác Hàng loạt (Bulk Action)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmBatchModalOpen, setConfirmBatchModalOpen] = useState(false)
+  const [isBatchCancelling, setIsBatchCancelling] = useState(false)
 
   const loadData = useCallback(async () => {
     setIsLoading(true)
@@ -557,6 +765,75 @@ export default function AdminShowtimesPage() {
     }).format(val)
   }
 
+  const filteredShowtimes = useMemo(() => {
+    if (filterCinemaId === "all") return showtimes
+    return showtimes.filter((st) => st.cinemaId === filterCinemaId)
+  }, [showtimes, filterCinemaId])
+
+  // Danh sách các suất chiếu đang hoạt động trong bộ lọc hiện tại (có thể hủy)
+  const activeFilteredShowtimes = useMemo(() => {
+    return filteredShowtimes.filter((st) => st.status !== "CANCELLED")
+  }, [filteredShowtimes])
+
+  // Trạng thái đã chọn tất cả chưa
+  const isAllSelected =
+    activeFilteredShowtimes.length > 0 &&
+    activeFilteredShowtimes.every((st) => selectedIds.has(st.id))
+
+  const isIndeterminate =
+    activeFilteredShowtimes.some((st) => selectedIds.has(st.id)) && !isAllSelected
+
+  // Xử lý Chọn tất cả / Bỏ chọn tất cả
+  const handleToggleSelectAll = () => {
+    const next = new Set(selectedIds)
+    if (isAllSelected) {
+      activeFilteredShowtimes.forEach((st) => next.delete(st.id))
+    } else {
+      activeFilteredShowtimes.forEach((st) => next.add(st.id))
+    }
+    setSelectedIds(next)
+  }
+
+  // Xử lý Chọn / Bỏ chọn một hàng
+  const handleToggleSelectOne = (id: string) => {
+    const next = new Set(selectedIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    setSelectedIds(next)
+  }
+
+  // Bỏ chọn tất cả
+  const handleClearSelection = () => {
+    setSelectedIds(new Set())
+  }
+
+  // Thực hiện Hủy hàng loạt
+  const handleExecuteBatchCancel = async () => {
+    if (selectedIds.size === 0) return
+
+    setIsBatchCancelling(true)
+    try {
+      const res = await adminBatchCancelShowtimes(Array.from(selectedIds))
+      setToast({
+        msg: res.message || `Đã hủy thành công ${res.successCount} suất chiếu!`,
+        type: "success",
+      })
+      setSelectedIds(new Set())
+      setConfirmBatchModalOpen(false)
+      loadData()
+    } catch (err: any) {
+      setToast({
+        msg: err.message || "Không thể hủy hàng loạt suất chiếu đã chọn",
+        type: "error",
+      })
+    } finally {
+      setIsBatchCancelling(false)
+    }
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {toast && (
@@ -584,8 +861,83 @@ export default function AdminShowtimesPage() {
         />
       )}
 
+      {/* Modal Xác nhận Hủy Hàng Loạt (Bulk Action Confirmation Modal) */}
+      {confirmBatchModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => !isBatchCancelling && setConfirmBatchModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 border border-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+              <AlertTriangle size={26} />
+            </div>
+
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
+              Xác nhận hủy hàng loạt suất chiếu
+            </h3>
+
+            <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+              Bạn có chắc chắn muốn hủy <b>{selectedIds.size}</b> suất chiếu đã chọn không?
+              Sau khi hủy, trạng thái sẽ chuyển thành <span className="font-semibold text-rose-600">"Đã hủy"</span> và ngừng mở bán vé.
+            </p>
+
+            {/* Danh sách tóm tắt các suất chiếu được chọn */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 mb-6 max-h-48 overflow-y-auto divide-y divide-slate-200/70">
+              {showtimes
+                .filter((st) => selectedIds.has(st.id))
+                .map((st) => (
+                  <div key={st.id} className="py-2 first:pt-0 last:pb-0 text-xs flex items-center justify-between">
+                    <span className="font-semibold text-slate-800 truncate max-w-[210px]">
+                      {st.movieTitle}
+                    </span>
+                    <span className="text-slate-500 shrink-0 ml-2">
+                      {new Date(st.startTime).toLocaleTimeString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      - {st.roomName}
+                    </span>
+                  </div>
+                ))}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isBatchCancelling}
+                onClick={() => setConfirmBatchModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold hover:bg-slate-50 transition text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isBatchCancelling}
+                onClick={handleExecuteBatchCancel}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold shadow-md shadow-rose-600/30 flex items-center gap-2 transition disabled:opacity-50 cursor-pointer"
+              >
+                {isBatchCancelling ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Đang hủy...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Xác nhận hủy ({selectedIds.size})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <CalendarDays size={24} className="text-blue-600" /> Quản lý Suất
@@ -604,6 +956,61 @@ export default function AdminShowtimesPage() {
         </button>
       </div>
 
+      {/* Filter & Batch Action Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <Building2 size={18} className="text-blue-600 shrink-0" />
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+            Cụm rạp:
+          </span>
+          <select
+            value={filterCinemaId}
+            onChange={(e) => {
+              setFilterCinemaId(e.target.value)
+              setSelectedIds(new Set())
+            }}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-semibold bg-slate-50 hover:bg-slate-100 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer text-slate-800"
+          >
+            <option value="all">Tất cả cụm rạp ({showtimes.length} suất)</option>
+            {cinemas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} {c.location ? `(${c.location})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Nút Hủy các mục đã chọn (Bulk Action Button) */}
+        <div className="flex items-center gap-3">
+          {selectedIds.size > 0 ? (
+            <div className="flex items-center gap-2.5 animate-fade-in">
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl">
+                Đã chọn: <b className="text-rose-600 font-extrabold">{selectedIds.size}</b> mục
+              </span>
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-2.5 py-1.5 transition cursor-pointer hover:bg-slate-100 rounded-lg"
+              >
+                Bỏ chọn
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmBatchModalOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-rose-600/30 transition cursor-pointer"
+              >
+                <Trash2 size={15} />
+                Hủy ({selectedIds.size})
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-500 font-medium">
+              Đang hiển thị <b>{filteredShowtimes.length}</b> / <b>{showtimes.length}</b> suất chiếu
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {isLoading ? (
@@ -611,12 +1018,16 @@ export default function AdminShowtimesPage() {
             <Loader2 size={32} className="animate-spin text-blue-600" />
             <p className="text-sm">Đang tải dữ liệu suất chiếu...</p>
           </div>
-        ) : showtimes.length === 0 ? (
+        ) : filteredShowtimes.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
             <CalendarDays size={40} className="mx-auto mb-3 text-slate-300" />
-            <p className="font-semibold">Chưa có suất chiếu nào được tạo.</p>
+            <p className="font-semibold">
+              {filterCinemaId !== "all"
+                ? "Không có suất chiếu nào tại cụm rạp đã chọn."
+                : "Chưa có suất chiếu nào được tạo."}
+            </p>
             <p className="text-xs text-slate-400 mt-1">
-              Nhấp vào nút "Thêm suất chiếu" ở góc trên để tạo suất chiếu mới.
+              Nhấp vào nút "Thêm suất chiếu" ở góc trên để tạo suất chiếu mới cho rạp này.
             </p>
           </div>
         ) : (
@@ -624,6 +1035,19 @@ export default function AdminShowtimesPage() {
             <table className="w-full text-left text-sm text-slate-600">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-bold text-slate-500">
                 <tr>
+                  {/* Cột Checkbox Chọn tất cả (Select All) */}
+                  <th className="w-12 px-4 py-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isIndeterminate
+                      }}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer accent-rose-600"
+                      title={isAllSelected ? "Bỏ chọn tất cả" : "Chọn tất cả các suất chiếu đang hiển thị"}
+                    />
+                  </th>
                   <th className="px-6 py-4">Phim</th>
                   <th className="px-6 py-4">Rạp & Phòng</th>
                   <th className="px-6 py-4">Thời gian chiếu</th>
@@ -634,13 +1058,33 @@ export default function AdminShowtimesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {showtimes.map((st) => {
+                {filteredShowtimes.map((st) => {
                   const s = new Date(st.startTime)
                   const e = new Date(st.endTime)
                   const isCancelled = st.status === "CANCELLED"
+                  const isSelected = selectedIds.has(st.id)
 
                   return (
-                    <tr key={st.id} className="hover:bg-slate-50/80 transition">
+                    <tr
+                      key={st.id}
+                      className={`transition ${
+                        isSelected
+                          ? "bg-rose-50/70 hover:bg-rose-50/90"
+                          : "hover:bg-slate-50/80"
+                      }`}
+                    >
+                      {/* Cột Checkbox hàng dữ liệu */}
+                      <td className="w-12 px-4 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isCancelled}
+                          onChange={() => handleToggleSelectOne(st.id)}
+                          className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer accent-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={isCancelled ? "Suất chiếu này đã hủy" : `Chọn suất chiếu ${st.movieTitle}`}
+                        />
+                      </td>
+
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <img

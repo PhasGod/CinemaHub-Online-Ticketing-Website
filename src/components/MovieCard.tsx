@@ -30,6 +30,7 @@ type MovieCardProps = {
 export function MovieCard({ movie, onPlayTrailer, onBuyTicket }: MovieCardProps) {
   const detailPath = movie.detailPath || `/chi-tiet-phim/${movie.id}`
   const isHot = movie.badgeType === "HOT"
+  const isUpcoming = movie.status === "coming-soon"
   const releaseLabel = movie.status === "now-showing"
     ? "Đang chiếu từ"
     : movie.status === "special-screening"
@@ -83,19 +84,52 @@ export function MovieCard({ movie, onPlayTrailer, onBuyTicket }: MovieCardProps)
         <h2 title={movie.title}>
           <Link to={detailPath}>{movie.title}</Link>
         </h2>
-        <p className="cinema-movie-genres">{movie.genres}</p>
-        <div className="cinema-movie-meta">
-          <span>{movie.duration}</span>
-          <span className="cinema-release-date">{releaseLabel}: {movie.releaseDate}</span>
+
+        {/* Metadata dạng từng dòng rõ ràng */}
+        <div className="cinema-movie-meta-block">
+          <p className="cinema-meta-row">
+            <span className="cinema-meta-label">Thể loại:</span>
+            <span className="cinema-meta-value">{movie.genres}</span>
+          </p>
+          <p className="cinema-meta-row">
+            <span className="cinema-meta-label">Thời lượng:</span>
+            <span className="cinema-meta-value">{movie.duration}</span>
+          </p>
+          <p className="cinema-meta-row cinema-meta-date">
+            <span className="cinema-meta-label">{releaseLabel}:</span>
+            <span className="cinema-meta-value cinema-meta-date-value">{movie.releaseDate}</span>
+          </p>
         </div>
-        <button
-          type="button"
-          className="cinema-buy-button"
-          onClick={() => onBuyTicket(movie)}
-        >
-          <Ticket size={18} aria-hidden="true" />
-          MUA VÉ
-        </button>
+
+        {isUpcoming ? (
+          movie.trailerYoutubeId ? (
+            <button
+              type="button"
+              className="cinema-buy-button"
+              onClick={() => onPlayTrailer(movie)}
+            >
+              <Play size={16} fill="currentColor" />
+              Xem Trailer
+            </button>
+          ) : (
+            <Link
+              to={detailPath}
+              className="cinema-buy-button"
+              style={{ textDecoration: "none" }}
+            >
+              Chi tiết
+            </Link>
+          )
+        ) : (
+          <button
+            type="button"
+            className="cinema-buy-button"
+            onClick={() => onBuyTicket(movie)}
+          >
+            <Ticket size={17} className="cinema-buy-ticket-icon" aria-hidden="true" />
+            MUA VÉ
+          </button>
+        )}
       </div>
     </article>
   )

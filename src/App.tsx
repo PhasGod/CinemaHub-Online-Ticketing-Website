@@ -1408,13 +1408,30 @@ function _LegacySuccessPage() {
 
 function CinemasPage() {
   const cinemas = [
-    "5TOP CINEMA Biên Hòa",
-
-    "5TOP CINEMA Thủ Đức",
-
-    "5TOP CINEMA Quận 7",
-
-    "5TOP CINEMA Bình Dương",
+    {
+      name: "5TOP CINEMA Biên Hòa",
+      image: "/cinemas/cinema-bien-hoa.png",
+      address: "1096 Phạm Văn Thuận, P. Tân Mai, TP. Biên Hòa, Đồng Nai",
+      distance: "1.2 km",
+    },
+    {
+      name: "5TOP CINEMA Thủ Đức",
+      image: "/cinemas/cinema-thu-duc.png",
+      address: "216 Võ Văn Ngân, P. Bình Thọ, TP. Thủ Đức, TP. HCM",
+      distance: "3.2 km",
+    },
+    {
+      name: "5TOP CINEMA Quận 7",
+      image: "/cinemas/cinema-quan-7.png",
+      address: "Tầng 5 Crescent Mall, 101 Tôn Dật Tiên, Tân Phú, Quận 7, TP. HCM",
+      distance: "5.2 km",
+    },
+    {
+      name: "5TOP CINEMA Bình Dương",
+      image: "/cinemas/cinema-binh-duong.png",
+      address: "Số 01 Đại lộ Bình Dương, TP. Dĩ An, Bình Dương",
+      distance: "7.2 km",
+    },
   ]
 
   return (
@@ -1426,20 +1443,17 @@ function CinemasPage() {
           <p>Không gian điện ảnh chuẩn quốc tế ngay gần bạn.</p>
         </div>
         <div className="cinema-grid">
-          {cinemas.map((name, index) => (
-            <article className="cinema-card" key={name}>
+          {cinemas.map((cinema) => (
+            <article className="cinema-card" key={cinema.name}>
               <img
-                src={index % 2 ? photos.marquee : photos.cinema}
-                alt={name}
+                src={cinema.image}
+                alt={cinema.name}
               />
               <div>
-                <span className="distance">{1.2 + index * 2}.2 km</span>
-                <h3>{name}</h3>
+                <span className="distance">{cinema.distance}</span>
+                <h3>{cinema.name}</h3>
                 <p>
-                  <MapPin size={16} />{" "}
-                  {index
-                    ? "Vincom Plaza, TP. Hồ Chí Minh"
-                    : "1096 Phạm Văn Thuận, Đồng Nai"}
+                  <MapPin size={16} /> {cinema.address}
                 </p>
                 <div className="tags">
                   <span>2D</span>
@@ -1877,7 +1891,7 @@ function SiteLayout() {
   }
 
   return (
-    <>
+    <div className="overflow-x-hidden w-full max-w-full pt-safe pb-safe">
       {!isStaffRoute && <Navbar onOpenLogin={() => setLoginOpen(true)} />}
       <Routes>
         <Route path="/" element={<CinemaHomePage />} />
@@ -1964,7 +1978,7 @@ function SiteLayout() {
           onAuthenticated={handleAuthenticated}
         />
       )}
-    </>
+    </div>
   )
 }
 

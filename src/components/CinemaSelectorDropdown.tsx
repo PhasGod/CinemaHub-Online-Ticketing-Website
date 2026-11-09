@@ -1,13 +1,10 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useMemo } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import {
-  MapPin,
   ChevronDown,
+  ChevronRight,
   Check,
   Building2,
-  Search,
-  Sparkles,
-  X,
 } from "lucide-react"
 import {
   useCinemaLocation,
@@ -21,17 +18,110 @@ function cn(...names: Array<string | false | null | undefined>) {
 }
 
 export default function CinemaSelectorDropdown() {
-  const { selectedCinema, changeCinema, groupedCinemas, isAllCinemasSelected } =
+  const { selectedCinema, changeCinema, cinemas, isAllCinemasSelected } =
     useCinemaLocation()
   const [isOpen, setIsOpen] = useState(false)
-  const [searchFilter, setSearchFilter] = useState("")
   const dropdownRef = useRef<HTMLDivElement>(null)
   const triggerButtonRef = useRef<HTMLButtonElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
   const { showToast } = useToast()
 
-  // Đóng dropdown khi click bên ngoài (click outside)
+  // Chuẩn hóa nhóm rạp theo Khu vực / Tỉnh Thành phố (Theo phong cách cascade 2 cột)
+  const normalizedGroups = useMemo(() => {
+    const groups: Record<string, CinemaLocation[]> = {
+      "Hà Nội": [],
+      "TP. Hồ Chí Minh": [],
+      "Đồng Nai": [],
+      "Bình Dương": [],
+    }
+
+    cinemas.forEach((c) => {
+      const city = c.city || ""
+      const addr = c.address || ""
+      const name = c.name || ""
+
+      if (city.includes("Hà Nội") || addr.includes("Hà Nội")) {
+        groups["Hà Nội"].push(c)
+      } else if (
+        city.includes("Hồ Chí Minh") ||
+        city.includes("TP.HCM") ||
+        addr.includes("Hồ Chí Minh") ||
+        addr.includes("TP. HCM") ||
+        addr.includes("Quận") ||
+        addr.includes("Thủ Đức") ||
+        addr.includes("Gò Vấp")
+      ) {
+        groups["TP. Hồ Chí Minh"].push(c)
+      } else if (
+        city.includes("Đồng Nai") ||
+        city.includes("Biên Hòa") ||
+        addr.includes("Đồng Nai") ||
+        addr.includes("Biên Hòa") ||
+        name.includes("Biên Hòa") ||
+        name.includes("Long Thành")
+      ) {
+        groups["Đồng Nai"].push(c)
+      } else if (
+        city.includes("Bình Dương") ||
+        addr.includes("Bình Dương") ||
+        addr.includes("Dĩ An") ||
+        addr.includes("Thủ Dầu Một") ||
+        name.includes("Dĩ An") ||
+        name.includes("Thủ Dầu Một")
+      ) {
+        groups["Bình Dương"].push(c)
+      } else {
+        const otherCity = c.city || "Khác"
+        if (!groups[otherCity]) groups[otherCity] = []
+        groups[otherCity].push(c)
+      }
+    })
+
+    const finalGroups: Record<string, CinemaLocation[]> = {}
+    Object.entries(groups).forEach(([key, list]) => {
+      if (list.length > 0) finalGroups[key] = list
+    })
+    return finalGroups
+  }, [cinemas])
+
+  const cityList = useMemo(() => {
+    return Object.keys(normalizedGroups)
+  }, [normalizedGroups])
+
+  // Thành phố đang được active ở cột trái (mặc định lấy theo rạp đang chọn)
+  const [activeCity, setActiveCity] = useState<string>("Đồng Nai")
+
+  // Đồng bộ activeCity khi mở dropdown hoặc khi selectedCinema thay đổi
+  useEffect(() => {
+    if (isOpen) {
+      const currentCity = selectedCinema.city || ""
+      const currentName = selectedCinema.name || ""
+      if (
+        currentCity.includes("Biên Hòa") ||
+        currentCity.includes("Đồng Nai") ||
+        currentName.includes("Biên Hòa") ||
+        currentName.includes("Long Thành")
+      ) {
+        setActiveCity("Đồng Nai")
+      } else if (
+        currentCity.includes("Hồ Chí Minh") ||
+        currentCity.includes("TP.HCM") ||
+        currentName.includes("Thủ Đức") ||
+        currentName.includes("Quận")
+      ) {
+        setActiveCity("TP. Hồ Chí Minh")
+      } else if (currentCity.includes("Hà Nội") || currentName.includes("Ba Đình") || currentName.includes("Hà Đông")) {
+        setActiveCity("Hà Nội")
+      } else if (currentCity.includes("Bình Dương") || currentName.includes("Dĩ An") || currentName.includes("Thủ Dầu Một")) {
+        setActiveCity("Bình Dương")
+      } else if (cityList.length > 0) {
+        setActiveCity(cityList[0])
+      }
+    }
+  }, [isOpen, selectedCinema, cityList])
+
+  // Đóng dropdown khi click bên ngoài
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -62,9 +152,7 @@ export default function CinemaSelectorDropdown() {
   const handleSelectCinema = (cinema: CinemaLocation) => {
     changeCinema(cinema)
     setIsOpen(false)
-    setSearchFilter("")
 
-    // Thông báo toast
     showToast(
       cinema.id === ALL_CINEMAS_OPTION.id
         ? "Đã chọn xem tất cả rạp trên toàn quốc"
@@ -73,7 +161,6 @@ export default function CinemaSelectorDropdown() {
       "Đổi rạp thành công"
     )
 
-    // Nếu đang ở trang Suất chiếu (/showtimes hoặc /booking), tự động reload/filter
     if (
       location.pathname.startsWith("/showtimes") ||
       location.pathname.startsWith("/booking")
@@ -94,276 +181,150 @@ export default function CinemaSelectorDropdown() {
   // Tên hiển thị trên nút Header
   const displayLabel = isAllCinemasSelected
     ? "Tất cả rạp"
-    : selectedCinema.city || selectedCinema.name
+    : selectedCinema.name
 
-  // Lọc danh sách rạp theo từ khóa tìm kiếm nhanh
-  const query = searchFilter.trim().toLowerCase()
-  const filteredGroupedCinemas = Object.entries(groupedCinemas).reduce<
-    Record<string, CinemaLocation[]>
-  >((acc, [city, cinemas]) => {
-    if (!query) {
-      acc[city] = cinemas
-      return acc
-    }
-    const matched = cinemas.filter(
-      (c) =>
-        c.name.toLowerCase().includes(query) ||
-        c.city.toLowerCase().includes(query) ||
-        (c.address && c.address.toLowerCase().includes(query))
-    )
-    if (matched.length > 0) {
-      acc[city] = matched
-    }
-    return acc
-  }, {})
-
-  const totalFilteredCount = Object.values(filteredGroupedCinemas).reduce(
-    (acc, list) => acc + list.length,
-    0
-  )
+  const cinemasInActiveCity = normalizedGroups[activeCity] || []
 
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
-      {/* Nút bấm trên Header */}
+      {/* Nút bấm Chọn Rạp dạng Viên Thuốc (Pill button như ảnh 1) */}
       <button
         ref={triggerButtonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "location-button hide-tablet transition-all duration-200 select-none",
-          isOpen && "ring-2 ring-blue-500/30 border-blue-500 bg-blue-50/40 text-blue-700"
+          "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border bg-white transition-all duration-150 select-none cursor-pointer shadow-2xs",
+          isOpen
+            ? "border-[#005baa] ring-2 ring-[#005baa]/15 text-[#005baa]"
+            : "border-slate-300 hover:border-[#005baa] text-[#005baa]"
         )}
         aria-expanded={isOpen}
         aria-haspopup="true"
-        aria-label="Chọn rạp hoặc khu vực"
+        aria-label="Chọn cụm rạp chiếu phim"
       >
-        <MapPin size={17} className="text-blue-600 shrink-0" />
-        <span className="font-semibold text-slate-800 max-w-[130px] truncate">
+        <span className="font-semibold text-xs sm:text-sm max-w-[130px] sm:max-w-[170px] truncate">
           {displayLabel}
         </span>
         <ChevronDown
-          size={15}
+          size={14}
           className={cn(
-            "text-slate-500 shrink-0 transition-transform duration-200",
-            isOpen && "rotate-180 text-blue-600"
+            "text-[#005baa] transition-transform duration-200 shrink-0",
+            isOpen && "rotate-180"
           )}
         />
       </button>
 
-      {/* Dropdown Menu Popover */}
+      {/* Flyout 2 Cột chuẩn như ảnh 1 */}
       {isOpen && (
         <div
-          className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-2xl border border-slate-200/90 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[500px]"
+          className="absolute left-0 mt-2 z-50 flex shadow-2xl rounded-none md:rounded-b-lg border border-slate-200 bg-white animate-in fade-in duration-100 max-w-[95vw]"
           role="menu"
-          aria-orientation="vertical"
         >
-          {/* Header của Popover */}
-          <div className="p-3.5 bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100 flex flex-col gap-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
-                  <MapPin size={15} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Chọn Rạp / Khu Vực
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Xem lịch chiếu và ưu đãi theo cụm rạp
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-colors"
-                aria-label="Đóng bảng chọn"
-              >
-                <X size={16} />
-              </button>
-            </div>
+          {/* Mũi tên nhỏ trỏ lên nút chọn (Pointer triangle giống ảnh 1) */}
+          <div className="absolute -top-1.5 left-6 w-3 h-3 bg-[#005baa] rotate-45 pointer-events-none" />
 
-            {/* Ô tìm kiếm nhanh rạp */}
-            <div className="relative">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="text"
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                placeholder="Tìm nhanh rạp, quận, thành phố..."
-                className="w-full pl-8.5 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 transition"
-              />
-              {searchFilter && (
-                <button
-                  type="button"
-                  onClick={() => setSearchFilter("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          {/* CỘT 1 (BÊN TRÁI): DANH SÁCH TỈNH / THÀNH PHỐ */}
+          <div className="w-36 sm:w-44 bg-white border-r border-slate-200 flex flex-col py-0 shrink-0 select-none">
+            {cityList.map((city) => {
+              const isActive = activeCity === city
+              return (
+                <div
+                  key={city}
+                  onMouseEnter={() => setActiveCity(city)}
+                  onClick={() => setActiveCity(city)}
+                  className={cn(
+                    "flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm font-medium cursor-pointer transition-colors border-b border-slate-100 last:border-b-0",
+                    isActive
+                      ? "bg-[#005baa] text-white"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-[#005baa]"
+                  )}
                 >
-                  <X size={13} />
-                </button>
+                  <span className="truncate">{city}</span>
+                  <ChevronRight
+                    size={14}
+                    className={cn(
+                      "shrink-0 ml-1 transition-transform",
+                      isActive ? "text-white" : "text-slate-400"
+                    )}
+                  />
+                </div>
+              )
+            })}
+
+            {/* Mục Toàn quốc ở cuối cột trái */}
+            <div
+              onMouseEnter={() => setActiveCity("Toàn quốc")}
+              onClick={() => setActiveCity("Toàn quốc")}
+              className={cn(
+                "flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm font-medium cursor-pointer transition-colors border-t border-slate-200 select-none",
+                activeCity === "Toàn quốc"
+                  ? "bg-[#005baa] text-white"
+                  : "text-slate-700 hover:bg-slate-50 hover:text-[#005baa]"
               )}
+            >
+              <span>Toàn quốc</span>
+              <ChevronRight
+                size={14}
+                className={activeCity === "Toàn quốc" ? "text-white" : "text-slate-400"}
+              />
             </div>
           </div>
 
-          {/* Danh sách rạp có thanh cuộn */}
-          <div className="overflow-y-auto p-2 space-y-2.5 flex-1 divide-y divide-slate-100">
-            {/* Lựa chọn: Tất cả rạp */}
-            {(!query ||
-              ALL_CINEMAS_OPTION.name.toLowerCase().includes(query)) && (
-              <div className="pb-1.5">
+          {/* CỘT 2 (BÊN PHẢI): DANH SÁCH RẠP TRỰC THUỘC TỈNH/THÀNH ĐANG CHỌN */}
+          <div className="w-52 sm:w-64 bg-white flex flex-col py-0 max-h-[380px] overflow-y-auto shrink-0">
+            {activeCity === "Toàn quốc" ? (
+              <div className="p-3">
                 <button
                   type="button"
                   onClick={() => handleSelectCinema(ALL_CINEMAS_OPTION)}
                   className={cn(
-                    "w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all group",
+                    "w-full text-left p-3 rounded-xl transition-all border flex items-center justify-between group cursor-pointer",
                     isAllCinemasSelected
-                      ? "bg-blue-50/90 text-blue-800 border border-blue-200 shadow-sm"
-                      : "hover:bg-slate-50 text-slate-700"
+                      ? "bg-blue-50 border-blue-200 text-[#005baa]"
+                      : "border-slate-200 hover:border-blue-300 hover:bg-slate-50 text-slate-700"
                   )}
-                  role="menuitem"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                        isAllCinemasSelected
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600"
-                      )}
-                    >
-                      <Building2 size={16} />
+                  <div>
+                    <div className="font-bold text-xs sm:text-sm flex items-center gap-1.5">
+                      <Building2 size={15} />
+                      Tất cả cụm rạp
                     </div>
-                    <div className="truncate">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs sm:text-sm">
-                          {ALL_CINEMAS_OPTION.name}
-                        </span>
-                        <span className="px-1.5 py-0.2 text-[10px] font-semibold rounded bg-amber-100 text-amber-800 shrink-0">
-                          Toàn quốc
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                        {ALL_CINEMAS_OPTION.address}
-                      </p>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Xem lịch chiếu trên toàn hệ thống
                     </div>
                   </div>
-
                   {isAllCinemasSelected && (
-                    <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 ml-2">
-                      <Check size={13} strokeWidth={3} />
-                    </div>
+                    <Check size={16} className="text-[#005baa] shrink-0 ml-2" />
                   )}
                 </button>
               </div>
-            )}
-
-            {/* Danh sách rạp theo từng Tỉnh / Thành phố */}
-            {totalFilteredCount === 0 && query ? (
-              <div className="py-8 text-center text-slate-400 px-4">
-                <MapPin size={28} className="mx-auto mb-2 opacity-30" />
-                <p className="text-xs font-medium text-slate-600">
-                  Không tìm thấy rạp nào
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Không có kết quả phù hợp với &ldquo;{searchFilter}&rdquo;
-                </p>
+            ) : cinemasInActiveCity.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400">
+                Chưa có rạp chiếu tại khu vực này
               </div>
             ) : (
-              Object.entries(filteredGroupedCinemas).map(([city, cinemas]) => (
-                <div key={city} className="pt-2">
-                  {/* Tiêu đề nhóm Tỉnh / Thành phố */}
-                  <div className="flex items-center justify-between px-2.5 py-1 mb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                      {city}
-                    </span>
-                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                      {cinemas.length} rạp
-                    </span>
-                  </div>
-
-                  {/* Danh sách rạp con */}
-                  <div className="space-y-1">
-                    {cinemas.map((cinema) => {
-                      const isSelected =
-                        !isAllCinemasSelected && selectedCinema.id === cinema.id
-
-                      return (
-                        <button
-                          key={cinema.id}
-                          type="button"
-                          onClick={() => handleSelectCinema(cinema)}
-                          className={cn(
-                            "w-full flex items-start justify-between p-2 rounded-xl text-left transition-all group",
-                            isSelected
-                              ? "bg-blue-50/90 text-blue-900 border border-blue-200 shadow-sm"
-                              : "hover:bg-slate-50 text-slate-700"
-                          )}
-                          role="menuitem"
-                        >
-                          <div className="min-w-0 flex-1 pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={cn(
-                                  "text-xs font-semibold truncate",
-                                  isSelected
-                                    ? "text-blue-700 font-bold"
-                                    : "text-slate-800 group-hover:text-blue-600"
-                                )}
-                              >
-                                {cinema.name}
-                              </span>
-                            </div>
-                            {cinema.address && (
-                              <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5 group-hover:text-slate-500">
-                                {cinema.address}
-                              </p>
-                            )}
-                          </div>
-
-                          {isSelected ? (
-                            <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5">
-                              <Check size={12} strokeWidth={3} />
-                            </div>
-                          ) : (
-                            <div className="w-5 h-5 shrink-0 opacity-0 group-hover:opacity-100 text-slate-400 transition-opacity flex items-center justify-center mt-0.5">
-                              <ChevronDown
-                                size={12}
-                                className="-rotate-90 text-slate-300 group-hover:text-blue-500"
-                              />
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))
+              cinemasInActiveCity.map((cinema) => {
+                const isCurrent = selectedCinema.id === cinema.id
+                return (
+                  <button
+                    key={cinema.id}
+                    type="button"
+                    onClick={() => handleSelectCinema(cinema)}
+                    className={cn(
+                      "w-full text-left px-4 py-2.5 text-xs sm:text-sm transition-colors border-b border-slate-100 last:border-b-0 flex items-center justify-between group cursor-pointer",
+                      isCurrent
+                        ? "text-[#005baa] font-bold bg-blue-50/60"
+                        : "text-slate-600 hover:text-[#005baa] hover:bg-slate-50"
+                    )}
+                  >
+                    <span className="truncate pr-2">{cinema.name}</span>
+                    {isCurrent && (
+                      <Check size={15} className="text-[#005baa] shrink-0" />
+                    )}
+                  </button>
+                )
+              })
             )}
-          </div>
-
-          {/* Footer của Popover */}
-          <div className="p-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-slate-500 flex items-center gap-1">
-              <Sparkles size={13} className="text-amber-500" />
-              Đang chọn:{" "}
-              <b className="text-slate-700 truncate max-w-[170px] inline-block align-bottom">
-                {selectedCinema.name}
-              </b>
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false)
-                navigate("/cinemas")
-              }}
-              className="text-blue-600 hover:text-blue-800 font-semibold hover:underline"
-            >
-              Xem tất cả rạp &rarr;
-            </button>
           </div>
         </div>
       )}

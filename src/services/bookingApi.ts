@@ -130,6 +130,39 @@ export async function adminCancelShowtime(showtimeId: string | number): Promise<
   })
 }
 
+export async function adminBatchCancelShowtimes(
+  ids: string[]
+): Promise<{ message: string; successCount: number; failedCount?: number }> {
+  try {
+    return await apiFetch<{ message: string; successCount: number; failedCount?: number }>(
+      "/showtimes/batch-cancel",
+      {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      }
+    )
+  } catch {
+    // Fallback nếu API batch gặp sự cố: gọi tuần tự từng suất chiếu
+    let successCount = 0
+    let failedCount = 0
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          await adminCancelShowtime(id)
+          successCount++
+        } catch {
+          failedCount++
+        }
+      })
+    )
+    return {
+      message: `Đã hủy thành công ${successCount} suất chiếu!`,
+      successCount,
+      failedCount,
+    }
+  }
+}
+
 // Staff Portal APIs
 export interface StaffStatsResponse {
   stats: {
@@ -142,8 +175,26 @@ export interface StaffStatsResponse {
   upcomingShowtimes: ShowtimeItem[]
 }
 
-export async function staffCheckInTicket(ticketCode: string): Promise<{ message: string; ticket: TicketItem }> {
-  return apiFetch<{ message: string; ticket: TicketItem }>("/tickets/check-in", {
+export interface CheckInMaskedData {
+  movieTitle: string
+  roomName: string
+  showTime: string
+  showDate: string
+  seats: string[]
+  format: string
+  customerName: string
+}
+
+export interface StaffCheckInResponse {
+  success: boolean
+  message: string
+  data?: CheckInMaskedData
+  ticket?: TicketItem
+  error?: string
+}
+
+export async function staffCheckInTicket(ticketCode: string): Promise<StaffCheckInResponse> {
+  return apiFetch<StaffCheckInResponse>("/staff/tickets/check-in", {
     method: "POST",
     body: JSON.stringify({ ticketCode }),
   })

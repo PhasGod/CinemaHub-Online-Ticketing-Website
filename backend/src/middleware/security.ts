@@ -4,7 +4,7 @@ export function csrfProtection(allowedOrigins: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next()
     // Bỏ qua kiểm tra CSRF đối với webhook/IPN callback từ cổng thanh toán (MoMo)
-    if (req.path.includes("/momo/ipn") || req.originalUrl.includes("/momo/ipn")) {
+    if (req.path?.includes("/momo/ipn") || req.originalUrl?.includes("/momo/ipn")) {
       return next()
     }
     const origin = req.get("Origin")

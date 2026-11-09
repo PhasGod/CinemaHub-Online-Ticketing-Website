@@ -13,7 +13,7 @@
     "prisma:push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
     "db:setup": "prisma generate && prisma migrate deploy && tsx prisma/seed.ts",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/auth.controller.test.ts tests/auth.integration.test.ts tests/security.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

@@ -74,14 +74,14 @@ function CinemaModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col my-auto overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <Building2 size={20} />
@@ -99,7 +99,8 @@ function CinemaModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="overflow-y-auto px-6 py-4 space-y-4 flex-1">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">
               Tên cụm rạp *
@@ -160,7 +161,9 @@ function CinemaModal({
             </div>
           )}
 
-          <div className="flex gap-3 pt-2">
+          </div>
+
+          <div className="px-6 py-4 border-t border-slate-100 flex gap-3 sticky bottom-0 bg-white z-10 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -213,36 +216,38 @@ function RoomModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
           <h3 className="text-lg font-bold text-slate-800">{editRoom ? "Chỉnh sửa phòng chiếu" : "Thêm phòng chiếu mới"}</h3>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!editRoom && (
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="overflow-y-auto px-6 py-4 space-y-4 flex-1">
+            {!editRoom && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Rạp chiếu *</label>
+                <select value={cinemaId} onChange={(e) => setCinemaId(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                  {cinemas.map((c) => <option key={c.id} value={c.id}>{c.name} {c.location ? `(${c.location})` : ""}</option>)}
+                </select>
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Rạp chiếu *</label>
-              <select value={cinemaId} onChange={(e) => setCinemaId(e.target.value)}
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Tên phòng chiếu *</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Phòng 01"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Định dạng</label>
+              <select value={format} onChange={(e) => setFormat(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                {cinemas.map((c) => <option key={c.id} value={c.id}>{c.name} {c.location ? `(${c.location})` : ""}</option>)}
+                {["2D", "3D", "IMAX", "4DX"].map((f) => <option key={f}>{f}</option>)}
               </select>
             </div>
-          )}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Tên phòng chiếu *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Phòng 01"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            {error && <div className="flex items-center gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-xl"><AlertCircle size={16} />{error}</div>}
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Định dạng</label>
-            <select value={format} onChange={(e) => setFormat(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-              {["2D", "3D", "IMAX", "4DX"].map((f) => <option key={f}>{f}</option>)}
-            </select>
-          </div>
-          {error && <div className="flex items-center gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-xl"><AlertCircle size={16} />{error}</div>}
-          <div className="flex gap-3 pt-2">
+          <div className="px-6 py-4 border-t border-slate-100 flex gap-3 sticky bottom-0 bg-white z-10 shrink-0">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50">Hủy</button>
             <button type="submit" disabled={isLoading}
               className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-2">

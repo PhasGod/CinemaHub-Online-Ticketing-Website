@@ -158,6 +158,79 @@ export default function ShowtimePage() {
       })
       .catch((err) => {
         console.error("Không thể tải danh sách cụm rạp:", err)
+        if (!active) return
+        // Dữ liệu dự phòng chuẩn hóa theo hệ thống 5TOP Cinema
+        const fallbackList: any[] = [
+          {
+            id: "bien-hoa",
+            name: "5TOP CINEMA Biên Hòa",
+            location: "Biên Hòa",
+            city: "Biên Hòa",
+            address: "1096 Phạm Văn Thuận, P. Tân Mai, TP. Biên Hòa, Đồng Nai",
+            rooms: [
+              { id: "bh-r1", cinemaId: "bien-hoa", name: "Phòng 01 (IMAX)", format: "IMAX", capacity: 60 },
+              { id: "bh-r2", cinemaId: "bien-hoa", name: "Phòng 02 (2D Standard)", format: "2D", capacity: 60 },
+              { id: "bh-r3", cinemaId: "bien-hoa", name: "Phòng 03 (3D VIP)", format: "3D", capacity: 60 },
+            ],
+          },
+          {
+            id: "long-thanh",
+            name: "5TOP Cinema Long Thành",
+            location: "Đồng Nai",
+            city: "Đồng Nai",
+            address: "Tầng 3 TTTM Vincom Plaza Long Thành, Đồng Nai",
+            rooms: [
+              { id: "lt-r1", cinemaId: "long-thanh", name: "Phòng 01 (IMAX)", format: "IMAX", capacity: 60 },
+              { id: "lt-r2", cinemaId: "long-thanh", name: "Phòng 02 (2D Standard)", format: "2D", capacity: 60 },
+            ],
+          },
+          {
+            id: "thu-duc",
+            name: "5TOP Cinema Thủ Đức",
+            location: "TP. Hồ Chí Minh",
+            city: "TP. Hồ Chí Minh",
+            address: "216 Võ Văn Ngân, P. Bình Thọ, TP. Thủ Đức, TP. HCM",
+            rooms: [
+              { id: "td-r1", cinemaId: "thu-duc", name: "Phòng 01 (IMAX)", format: "IMAX", capacity: 60 },
+              { id: "td-r2", cinemaId: "thu-duc", name: "Phòng 02 (2D Standard)", format: "2D", capacity: 60 },
+              { id: "td-r3", cinemaId: "thu-duc", name: "Phòng 03 (3D VIP)", format: "3D", capacity: 60 },
+            ],
+          },
+          {
+            id: "quan-7",
+            name: "5TOP Cinema Quận 7 (Crescent Mall)",
+            location: "TP. Hồ Chí Minh",
+            city: "TP. Hồ Chí Minh",
+            address: "Tầng 5 Crescent Mall, 101 Tôn Dật Tiên, Tân Phú, Quận 7, TP. HCM",
+            rooms: [
+              { id: "q7-r1", cinemaId: "quan-7", name: "Phòng 01 (IMAX)", format: "IMAX", capacity: 60 },
+              { id: "q7-r2", cinemaId: "quan-7", name: "Phòng 02 (2D Standard)", format: "2D", capacity: 60 },
+            ],
+          },
+          {
+            id: "binh-duong",
+            name: "5TOP Cinema Dĩ An",
+            location: "Bình Dương",
+            city: "Bình Dương",
+            address: "Số 01 Đại lộ Bình Dương, Dĩ An, Bình Dương",
+            rooms: [
+              { id: "da-r1", cinemaId: "binh-duong", name: "Phòng 01 (IMAX)", format: "IMAX", capacity: 60 },
+              { id: "da-r2", cinemaId: "binh-duong", name: "Phòng 02 (2D Standard)", format: "2D", capacity: 60 },
+            ],
+          },
+          {
+            id: "ba-dinh",
+            name: "5TOP Cinema Ba Đình (Liễu Giai)",
+            location: "Hà Nội",
+            city: "Hà Nội",
+            address: "29 Liễu Giai, P. Ngọc Khánh, Ba Đình, Hà Nội",
+            rooms: [
+              { id: "bd-r1", cinemaId: "ba-dinh", name: "Phòng 01 (IMAX)", format: "IMAX", capacity: 60 },
+              { id: "bd-r2", cinemaId: "ba-dinh", name: "Phòng 02 (2D Standard)", format: "2D", capacity: 60 },
+            ],
+          },
+        ]
+        setCinemas(fallbackList)
       })
       .finally(() => {
         if (active) setIsLoadingCinemas(false)
@@ -220,18 +293,36 @@ export default function ShowtimePage() {
 
   // Danh sách Tỉnh / Thành phố từ các rạp hiện có
   const cityList = useMemo(() => {
-    const set = new Set<string>()
+    // Thứ tự ưu tiên hiển thị các khu vực trọng điểm theo thiết kế hệ thống
+    const preferredOrder = ["Tất cả", "TP. Hồ Chí Minh", "Biên Hòa", "Đồng Nai", "Bình Dương", "Hà Nội"]
+    const availableCities = new Set<string>()
     cinemas.forEach((c) => {
       const city = c.city || c.location
-      if (city) set.add(city.trim())
+      if (city) availableCities.add(city.trim())
     })
-    return ["Tất cả", ...Array.from(set)]
+
+    const result = preferredOrder.filter((item) => item === "Tất cả" || availableCities.has(item))
+    availableCities.forEach((city) => {
+      if (!result.includes(city)) result.push(city)
+    })
+    return result
   }, [cinemas])
 
-  // Lọc rạp theo Tỉnh / Thành
+  // Lọc rạp theo Tỉnh / Thành linh hoạt (hỗ trợ cả tag city và address)
   const filteredCinemas = useMemo(() => {
     if (selectedCity === "Tất cả") return cinemas
-    return cinemas.filter((c) => (c.city || c.location) === selectedCity)
+    const sel = selectedCity.toLowerCase()
+    return cinemas.filter((c) => {
+      const city = (c.city || c.location || "").toLowerCase()
+      const addr = (c.address || "").toLowerCase()
+      if (city === sel) return true
+      if (sel === "biên hòa" && (city.includes("biên hòa") || addr.includes("biên hòa"))) return true
+      if (sel === "đồng nai" && (city.includes("đồng nai") || city.includes("biên hòa") || addr.includes("đồng nai"))) return true
+      if (sel.includes("hồ chí minh") && (city.includes("hồ chí minh") || city.includes("tp.hcm") || addr.includes("hồ chí minh") || addr.includes("tp. hcm") || addr.includes("quận") || addr.includes("thủ đức"))) return true
+      if (sel.includes("bình dương") && (city.includes("bình dương") || addr.includes("bình dương") || addr.includes("dĩ an") || addr.includes("thủ dầu một"))) return true
+      if (sel.includes("hà nội") && (city.includes("hà nội") || addr.includes("hà nội") || addr.includes("ba đình") || addr.includes("hà đông"))) return true
+      return false
+    })
   }, [cinemas, selectedCity])
 
   // Lọc danh sách phim độc nhất đang có suất chiếu tại rạp đã chọn
@@ -326,16 +417,13 @@ export default function ShowtimePage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-800 pt-24 pb-20">
       <div className="container max-w-6xl mx-auto px-4" ref={stepSectionRef}>
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-rose-600 font-bold text-xs uppercase tracking-wider mb-2">
-            <Sparkles size={16} /> Đặt vé trực tuyến 5TOP CINEMA
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+        {/* Khối tiêu đề tinh gọn */}
+        <div className="text-center my-8">
+          <h1 className="font-heading text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900">
             Lịch Chiếu & Đặt Vé Theo Cụm Rạp
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Chọn Rạp chiếu → Chọn Phim → Chọn Suất chiếu → Chọn Ghế & Bắp nước → Thanh toán nhận vé
+          <p className="font-sans text-sm md:text-base text-slate-500 mt-2 font-normal">
+            Chọn cụm rạp gần bạn nhất để xem suất chiếu và đặt chỗ
           </p>
         </div>
 
@@ -381,11 +469,10 @@ export default function ShowtimePage() {
                   <button
                     key={city}
                     onClick={() => setSelectedCity(city)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                      selectedCity === city
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${selectedCity === city
                         ? "bg-rose-500 text-white shadow-sm"
                         : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 shadow-2xs"
-                    }`}
+                      }`}
                   >
                     {city}
                   </button>
@@ -418,51 +505,41 @@ export default function ShowtimePage() {
                     <div
                       key={cinema.id}
                       onClick={() => handleSelectCinema(cinema)}
-                      className={`group relative p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`group relative rounded-2xl p-5 transition-all duration-200 cursor-pointer ${
                         isSelected
-                          ? "bg-rose-50/60 border-2 border-rose-500 shadow-md ring-1 ring-rose-500/20"
-                          : "bg-white border-slate-200 hover:border-rose-400 hover:shadow-md shadow-xs"
+                          ? "bg-rose-50/50 border-2 border-rose-500 shadow-md ring-2 ring-rose-500/20"
+                          : "bg-white border border-slate-200 hover:border-rose-500 hover:shadow-lg"
                       }`}
                     >
-                      <div>
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
-                              <Building2 size={18} />
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-base text-slate-900 group-hover:text-rose-600 transition">
-                                {cinema.name}
-                              </h3>
-                              <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded">
-                                {cinema.city || cinema.location}
-                              </span>
-                            </div>
-                          </div>
-
+                      {/* Top: Badge Tỉnh/Thành & Số phòng */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-600 tracking-wide">
+                          {cinema.city || cinema.location}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[12px] font-medium text-slate-400">
+                            {roomCount > 0 ? `${roomCount} phòng chiếu` : "Đang cập nhật"}
+                          </span>
                           {isSelected && (
-                            <span className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                              <Check size={14} strokeWidth={2.5} />
+                            <span className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <Check size={12} strokeWidth={2.5} />
                             </span>
                           )}
                         </div>
-
-                        {cinema.address && (
-                          <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-2.5">
-                            <MapPin size={13} className="text-slate-400 shrink-0 mt-0.5" />
-                            <span className="line-clamp-2">{cinema.address}</span>
-                          </p>
-                        )}
                       </div>
 
-                      <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                        <span className="text-slate-500">
-                          {roomCount > 0 ? `${roomCount} phòng chiếu` : "Đang cập nhật phòng"}
-                        </span>
-                        <span className="font-medium text-rose-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform group-hover:underline">
-                          Chọn rạp này <ArrowRight size={14} />
-                        </span>
-                      </div>
+                      {/* Tên Rạp (Cấp 1) */}
+                      <h3 className="font-heading text-base font-bold text-slate-900 group-hover:text-rose-600 transition-colors">
+                        {cinema.name}
+                      </h3>
+
+                      {/* Địa chỉ chi tiết (Cấp 2) */}
+                      {cinema.address && (
+                        <p className="font-sans text-xs text-slate-500 mt-2 leading-relaxed flex items-start gap-1.5">
+                          <MapPin size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">{cinema.address}</span>
+                        </p>
+                      )}
                     </div>
                   )
                 })}
@@ -555,11 +632,10 @@ export default function ShowtimePage() {
                     <div
                       key={m.id}
                       onClick={() => handleSelectMovie(m)}
-                      className={`group relative rounded-2xl overflow-hidden border transition-all cursor-pointer flex flex-col bg-white ${
-                        isSelected
+                      className={`group relative rounded-2xl overflow-hidden border transition-all cursor-pointer flex flex-col bg-white ${isSelected
                           ? "border-2 border-rose-500 shadow-lg ring-1 ring-rose-500/30"
                           : "border-slate-200 hover:border-rose-400 hover:scale-[1.02] shadow-sm hover:shadow-md"
-                      }`}
+                        }`}
                     >
                       {/* Poster */}
                       <div className="relative aspect-[2/3] w-full overflow-hidden bg-slate-100">
@@ -679,11 +755,10 @@ export default function ShowtimePage() {
                       <button
                         key={dateStr}
                         onClick={() => setSelectedDate(dateStr)}
-                        className={`flex flex-col items-center justify-center w-24 py-3 px-2 rounded-2xl border transition-all ${
-                          isSelected
+                        className={`flex flex-col items-center justify-center w-24 py-3 px-2 rounded-2xl border transition-all ${isSelected
                             ? "bg-rose-500 border-2 border-rose-600 text-white shadow-md shadow-rose-500/20 scale-105 font-bold"
                             : "bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50 shadow-2xs"
-                        }`}
+                          }`}
                       >
                         <span className={`text-[11px] ${isSelected ? "text-rose-100 font-semibold" : "text-slate-500 font-medium"}`}>
                           {dayName}

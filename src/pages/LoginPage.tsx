@@ -61,8 +61,8 @@ export function LoginPage() {
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-8">
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold text-blue-600 mb-2">
-            <Clapperboard size={28} />
+          <Link to="/" className="inline-flex items-center gap-2.5 text-2xl font-bold text-blue-600 mb-2">
+            <img src="/logo-5top-cinema.png" alt="5TOP CINEMA" className="w-9 h-9 object-contain rounded-xl drop-shadow-md" />
             <span>5TOP CINEMA</span>
           </Link>
           <h1 className="text-xl font-bold text-slate-800">Đăng nhập tài khoản</h1>

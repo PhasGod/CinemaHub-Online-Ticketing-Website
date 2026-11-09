@@ -465,3 +465,68 @@ export async function cancelShowtime(req: AuthRequest, res: Response) {
     return res.status(500).json({ error: "Lỗi hệ thống khi hủy suất chiếu" })
   }
 }
+
+// POST /api/showtimes/batch-cancel (Chỉ Admin/Staff - Hủy hàng loạt)
+export async function batchCancelShowtimes(req: AuthRequest, res: Response) {
+  try {
+    const { ids } = req.body as { ids: string[] }
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Danh sách suất chiếu cần hủy không hợp lệ" })
+    }
+
+    let successCount = 0
+    const errors: string[] = []
+
+    for (const id of ids) {
+      const showtime = await prisma.showtime.findUnique({
+        where: { id },
+        include: { movie: true },
+      })
+
+      if (!showtime) {
+        errors.push(`Suất chiếu ${id} không tồn tại`)
+        continue
+      }
+
+      if (showtime.status === "CANCELLED") {
+        continue
+      }
+
+      const bookedSeatsCount = await prisma.showtimeSeat.count({
+        where: {
+          showtimeId: id,
+          status: "BOOKED",
+        },
+      })
+
+      if (bookedSeatsCount > 0) {
+        errors.push(
+          `Suất chiếu "${showtime.movie.title}" đã có ${bookedSeatsCount} vé đặt, không thể hủy`,
+        )
+        continue
+      }
+
+      await prisma.showtime.update({
+        where: { id },
+        data: { status: "CANCELLED" },
+      })
+      successCount++
+    }
+
+    return res.json({
+      success: true,
+      message: `Đã hủy thành công ${successCount} suất chiếu!`,
+      successCount,
+      failedCount: errors.length,
+      errors: errors.length > 0 ? errors : undefined,
+    })
+  } catch (error) {
+    console.error("Batch cancel showtimes error:", error)
+    return res
+      .status(500)
+      .json({ error: "Lỗi hệ thống khi hủy hàng loạt suất chiếu" })
+  }
+}

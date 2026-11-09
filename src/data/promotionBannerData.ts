@@ -21,7 +21,7 @@ export const promotionBannerData: PromotionBanner[] = [
   {
     id: "5top-dong-gia-online",
     imageUrl: "/promo/carousel-dong-gia-online.png",
-    title: "5TOP Cinema - Đồng giá online",
+    title: "5TOP Cinema - Đồng giá vé trực tuyến",
     targetUrl: "/promotions",
   },
   {
@@ -29,5 +29,11 @@ export const promotionBannerData: PromotionBanner[] = [
     imageUrl: "/promo/carousel-flex-deal.png",
     title: "5TOP Cinema - Flex Deal chỉ từ 23K",
     targetUrl: "/promotions",
+  },
+  {
+    id: "5top-bom-tan",
+    imageUrl: "/promo/september-hero-cinema-v2.png",
+    title: "5TOP Cinema - Đại tiệc điện ảnh bom tấn",
+    targetUrl: "/movies",
   },
 ]

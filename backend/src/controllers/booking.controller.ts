@@ -61,9 +61,17 @@ export async function holdSeats(req: AuthRequest, res: Response) {
         )
       }
 
-      if (new Date(showtime.startTime) <= new Date()) {
+      // Kiểm tra thời gian suất chiếu (trong môi trường development cho phép test đặt vé linh hoạt)
+      const currentTime = new Date()
+      const showtimeEnd = new Date(showtime.endTime || showtime.startTime)
+      const isPast =
+        process.env.NODE_ENV === "development"
+          ? false
+          : new Date(showtime.startTime) <= currentTime && showtimeEnd < currentTime
+
+      if (isPast) {
         throw Object.assign(
-          new Error("Không thể đặt vé cho suất chiếu đã bắt đầu hoặc kết thúc"),
+          new Error("Không thể đặt vé cho suất chiếu đã kết thúc"),
           { status: 400 },
         )
       }

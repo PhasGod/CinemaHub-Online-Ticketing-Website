@@ -58,15 +58,66 @@ export function BookingSteps({ current }: { current: number }) {
 
 export function Brand() {
   return (
-    <Link to="/" className="brand" aria-label="5TOP CINEMA">
-      <span className="brand-mark">
-        <Ticket size={20} />
-      </span>
+    <Link to="/" className="brand flex items-center gap-2" aria-label="5TOP CINEMA">
+      <img
+        src="/logo-5top-cinema.png"
+        alt="5TOP CINEMA"
+        className="w-8 h-8 object-contain rounded-lg shadow-sm"
+      />
       <span>
         5TOP <span className="brand-accent">CINEMA</span>
       </span>
     </Link>
   )
+}
+
+// ─── Download Ticket Helper ───────────────────────────────────────────────────
+
+function downloadTicketQr(ticketCode: string, qrCode?: string) {
+  try {
+    const fileName = `ve-dien-tu-${ticketCode || "5top"}.png`
+    let downloadUrl = qrCode
+
+    if (!downloadUrl) {
+      downloadUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(ticketCode)}`
+    }
+
+    // Nếu là base64 data url, tải trực tiếp về thư mục Downloads của trình duyệt
+    if (downloadUrl.startsWith("data:")) {
+      const link = document.createElement("a")
+      link.href = downloadUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      return
+    }
+
+    // Nếu là URL online, fetch Blob rồi tải về máy
+    fetch(downloadUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const blobUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = blobUrl
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(blobUrl)
+      })
+      .catch(() => {
+        const link = document.createElement("a")
+        link.href = downloadUrl
+        link.download = fileName
+        link.target = "_blank"
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      })
+  } catch (err) {
+    console.error("Lỗi tải vé:", err)
+  }
 }
 
 // ─── TicketDetailModal ────────────────────────────────────────────────────────
@@ -276,7 +327,7 @@ export function TicketDetailModal({
           <button
             type="button"
             onClick={() => {
-              alert(`Đã lưu vé điện tử ${ticket.ticketCode} về thiết bị của bạn!`)
+              downloadTicketQr(ticket.ticketCode, ticket.qrCode)
             }}
             className="py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >
@@ -462,9 +513,9 @@ export function SuccessPage() {
           <button
             type="button"
             onClick={() => {
-              alert(
-                `Đã tải vé điện tử ${primaryTicket?.ticketCode || ""} về máy!`,
-              )
+              if (primaryTicket) {
+                downloadTicketQr(primaryTicket.ticketCode, primaryTicket.qrCode)
+              }
             }}
             className="button button-secondary cursor-pointer"
           >

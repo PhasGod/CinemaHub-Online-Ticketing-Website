@@ -53,6 +53,12 @@ export default function CheckoutPage() {
     ticketTotal?: number
     comboTotal?: number
     grandTotal?: number
+    appliedVoucher?: VoucherApplyResult
+    customerInfo?: {
+      fullName: string
+      phone: string
+      email: string
+    }
   } | undefined
 
   const [booking, setBooking] = useState<BookingDetail | null>(null)
@@ -80,13 +86,24 @@ export default function CheckoutPage() {
   const [momoStatus, setMomoStatus] = useState<"PENDING" | "SUCCESS" | "FAILED">("PENDING")
   const [momoStatusMessage, setMomoStatusMessage] = useState<string>("")
 
-  // Voucher / Promotion state
-  const [voucherCodeInput, setVoucherCodeInput] = useState("")
-  const [appliedVoucher, setAppliedVoucher] = useState<VoucherApplyResult | null>(null)
+  // Voucher / Promotion state - Tự động đồng bộ từ Bước 4.2 nếu có
+  const [voucherCodeInput, setVoucherCodeInput] = useState(
+    stateData?.appliedVoucher?.promotion?.code || ""
+  )
+  const [appliedVoucher, setAppliedVoucher] = useState<VoucherApplyResult | null>(
+    stateData?.appliedVoucher || null
+  )
   const [voucherMessage, setVoucherMessage] = useState<{
     type: "success" | "error" | "info"
     text: string
-  } | null>(null)
+  } | null>(
+    stateData?.appliedVoucher?.valid
+      ? {
+          type: "success",
+          text: `Đã áp dụng mã "${stateData.appliedVoucher.promotion?.code}": Giảm ${stateData.appliedVoucher.discountAmount.toLocaleString("vi-VN")}đ`,
+        }
+      : null
+  )
 
   // Tải dữ liệu booking nếu chưa có qua state
   useEffect(() => {
@@ -644,6 +661,23 @@ export default function CheckoutPage() {
                     {bookingCode}
                   </span>
                 </div>
+
+                {stateData?.customerInfo && (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
+                    <span className="font-bold text-slate-700 block uppercase tracking-wider text-[10px]">
+                      Thông tin nhận vé điện tử
+                    </span>
+                    <div className="flex justify-between text-slate-800">
+                      <span>Khách hàng: <strong>{stateData.customerInfo.fullName}</strong></span>
+                      <span>SĐT: <strong>{stateData.customerInfo.phone || "---"}</strong></span>
+                    </div>
+                    {stateData.customerInfo.email && (
+                      <div className="text-slate-500">
+                        Email: {stateData.customerInfo.email}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-500 font-medium text-sm">Phim</span>
                   <span className="font-semibold text-gray-900 text-right max-w-[240px]">

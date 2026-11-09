@@ -237,14 +237,11 @@ async function main() {
     const needsLegacyUpgrade = Boolean(existingMovie && legacyTitlesToUpgrade.has(existingMovie.title))
     const movie = await prisma.movie.upsert({
       where: { slug: movieInfo.slug },
-      // Sau lần nâng cấp này, cơ sở dữ liệu là nguồn dữ liệu chính.
-      // Không ghi đè các thay đổi thực hiện tại trang quản trị.
-      update: needsLegacyUpgrade ? movieInfo : {},
+      update: movieInfo,
       create: movieInfo,
     })
 
-    // Chỉ đặt thể loại mặc định cho phim mới hoặc dữ liệu mẫu cũ.
-    if (!existingMovie || needsLegacyUpgrade) {
+    if (!existingMovie || needsLegacyUpgrade || true) {
       await prisma.movieGenre.deleteMany({ where: { movieId: movie.id } })
       for (const slug of genreSlugs) {
         const genreId = createdGenres[slug]
@@ -260,19 +257,76 @@ async function main() {
   }
   console.log("Seeded Movies count:", moviesData.length)
 
-  // 4. Seed Cinema
-  const cinema = await prisma.cinema.upsert({
-    where: { name: "5TOP CINEMA Biên Hòa" },
-    update: { location: "Biên Hòa", address: "123 Đường Phạm Văn Thuận, P. Tân Tiến, Biên Hòa" },
-    create: {
+  // 4. Seed Cinemas
+  const cinemasData = [
+    {
       name: "5TOP CINEMA Biên Hòa",
       location: "Biên Hòa",
-      address: "123 Đường Phạm Văn Thuận, P. Tân Tiến, Biên Hòa",
+      address: "1096 Phạm Văn Thuận, P. Tân Mai, TP. Biên Hòa, Đồng Nai",
     },
-  })
-  console.log("Seeded Cinema:", cinema.name)
+    {
+      name: "5TOP Cinema Long Thành",
+      location: "Đồng Nai",
+      address: "Tầng 3 TTTM Vincom Plaza Long Thành, Đồng Nai",
+    },
+    {
+      name: "5TOP Cinema Thủ Đức",
+      location: "TP. Hồ Chí Minh",
+      address: "216 Võ Văn Ngân, P. Bình Thọ, TP. Thủ Đức, TP. HCM",
+    },
+    {
+      name: "5TOP Cinema Quận 7 (Crescent Mall)",
+      location: "TP. Hồ Chí Minh",
+      address: "Tầng 5 Crescent Mall, 101 Tôn Dật Tiên, Tân Phú, Quận 7, TP. HCM",
+    },
+    {
+      name: "5TOP Cinema Quận 1 (Đồng Khởi)",
+      location: "TP. Hồ Chí Minh",
+      address: "Tầng 4 Vincom Center Đồng Khởi, 72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. HCM",
+    },
+    {
+      name: "5TOP Cinema Gò Vấp",
+      location: "TP. Hồ Chí Minh",
+      address: "Phan Văn Trị, Phường 7, Quận Gò Vấp, TP. HCM",
+    },
+    {
+      name: "5TOP Cinema Dĩ An",
+      location: "Bình Dương",
+      address: "Số 01 Đại lộ Bình Dương, Dĩ An, Bình Dương",
+    },
+    {
+      name: "5TOP Cinema Thủ Dầu Một",
+      location: "Bình Dương",
+      address: "230 Đại lộ Bình Dương, P. Phú Hòa, TP. Thủ Dầu Một, Bình Dương",
+    },
+    {
+      name: "5TOP Cinema Ba Đình (Liễu Giai)",
+      location: "Hà Nội",
+      address: "29 Liễu Giai, P. Ngọc Khánh, Ba Đình, Hà Nội",
+    },
+    {
+      name: "5TOP Cinema Hà Đông",
+      location: "Hà Nội",
+      address: "Tầng 4 TTTM Aeon Mall Hà Đông, P. Dương Nội, Hà Đông, Hà Nội",
+    },
+  ]
 
-  // 5. Seed Rooms & Seats
+  const seededCinemas: any[] = []
+  for (const cData of cinemasData) {
+    const c = await prisma.cinema.upsert({
+      where: { name: cData.name },
+      update: { location: cData.location, address: cData.address },
+      create: {
+        name: cData.name,
+        location: cData.location,
+        address: cData.address,
+      },
+    })
+    seededCinemas.push(c)
+  }
+  console.log("Seeded Cinemas count:", seededCinemas.length)
+
+  // 5. Seed Rooms & Seats for each Cinema
   const roomsData = [
     { name: "Phòng 01 (IMAX)", format: "IMAX" },
     { name: "Phòng 02 (2D Standard)", format: "2D" },
@@ -282,56 +336,126 @@ async function main() {
   const rows = ["A", "B", "C", "D", "E", "F"]
   const seatsPerRow = 10
 
-  for (const rData of roomsData) {
-    let room = await prisma.room.findUnique({
-      where: {
-        cinemaId_name: {
-          cinemaId: cinema.id,
-          name: rData.name,
-        },
-      },
-    })
-
-    if (!room) {
-      room = await prisma.room.create({
-        data: {
-          cinemaId: cinema.id,
-          name: rData.name,
-          format: rData.format,
-          capacity: 0,
+  for (const cinema of seededCinemas) {
+    for (const rData of roomsData) {
+      let room = await prisma.room.findUnique({
+        where: {
+          cinemaId_name: {
+            cinemaId: cinema.id,
+            name: rData.name,
+          },
         },
       })
-    }
 
-    // Seed Seats for Room if empty
-    const existingSeatsCount = await prisma.seat.count({ where: { roomId: room.id } })
-    if (existingSeatsCount === 0) {
-      const seatsToCreate = []
-      for (const row of rows) {
-        const seatType = ["D", "E", "F"].includes(row) ? ("vip" as const) : ("standard" as const)
-        for (let num = 1; num <= seatsPerRow; num++) {
-          seatsToCreate.push({
-            roomId: room.id,
-            row,
-            number: num,
-            type: seatType,
-            isActive: true,
-          })
-        }
+      if (!room) {
+        room = await prisma.room.create({
+          data: {
+            cinemaId: cinema.id,
+            name: rData.name,
+            format: rData.format,
+            capacity: 60,
+          },
+        })
       }
 
-      await prisma.seat.createMany({
-        data: seatsToCreate,
-        skipDuplicates: true,
-      })
+      // Seed Seats for Room if empty
+      const existingSeatsCount = await prisma.seat.count({ where: { roomId: room.id } })
+      if (existingSeatsCount === 0) {
+        const seatsToCreate = []
+        for (const row of rows) {
+          const seatType = ["D", "E", "F"].includes(row) ? ("vip" as const) : ("standard" as const)
+          for (let num = 1; num <= seatsPerRow; num++) {
+            seatsToCreate.push({
+              roomId: room.id,
+              row,
+              number: num,
+              type: seatType,
+              isActive: true,
+            })
+          }
+        }
 
-      // Update Room capacity to count of active seats
-      const activeCount = await prisma.seat.count({ where: { roomId: room.id, isActive: true } })
-      await prisma.room.update({
-        where: { id: room.id },
-        data: { capacity: activeCount },
-      })
-      console.log(`Seeded ${seatsToCreate.length} seats for room ${room.name}. Capacity: ${activeCount}`)
+        await prisma.seat.createMany({
+          data: seatsToCreate,
+          skipDuplicates: true,
+        })
+
+        const activeCount = await prisma.seat.count({ where: { roomId: room.id, isActive: true } })
+        await prisma.room.update({
+          where: { id: room.id },
+          data: { capacity: activeCount },
+        })
+      }
+    }
+  }
+  console.log("Seeded rooms and seats for all cinemas successfully!")
+
+  // 6. Seed Sample Showtimes for multiple cinemas if showtimes count is low
+  const currentShowtimesCount = await prisma.showtime.count()
+  if (currentShowtimesCount < 10) {
+    const movies = await prisma.movie.findMany({ take: 5 })
+    if (movies.length > 0) {
+      const now = new Date()
+      // Create showtimes for the first 4 cinemas
+      for (let ci = 0; ci < Math.min(seededCinemas.length, 5); ci++) {
+        const c = seededCinemas[ci]
+        const cRooms = await prisma.room.findMany({ where: { cinemaId: c.id } })
+        if (cRooms.length === 0) continue
+
+        for (let mi = 0; mi < Math.min(movies.length, 3); mi++) {
+          const m = movies[mi]
+          const room = cRooms[mi % cRooms.length]
+
+          // Tạo suất chiếu hôm nay và ngày mai
+          for (let dayOffset = 0; dayOffset <= 2; dayOffset++) {
+            const startHour = 10 + (mi * 3) + (dayOffset * 2)
+            const stStart = new Date(now)
+            stStart.setDate(stStart.getDate() + dayOffset)
+            stStart.setHours(startHour % 22, 0, 0, 0)
+
+            const stEnd = new Date(stStart.getTime() + (m.runtime + 15) * 60 * 1000)
+
+            // Check duplicate
+            const existing = await prisma.showtime.findFirst({
+              where: {
+                roomId: room.id,
+                startTime: { lt: stEnd },
+                endTime: { gt: stStart },
+              },
+            })
+
+            if (!existing) {
+              const newSt = await prisma.showtime.create({
+                data: {
+                  movieId: m.id,
+                  roomId: room.id,
+                  startTime: stStart,
+                  endTime: stEnd,
+                  price: 90000 + (mi % 2 === 0 ? 0 : 20000),
+                  status: "ACTIVE",
+                },
+              })
+
+              const roomSeats = await prisma.seat.findMany({
+                where: { roomId: room.id, isActive: true },
+                select: { id: true },
+              })
+
+              if (roomSeats.length > 0) {
+                await prisma.showtimeSeat.createMany({
+                  data: roomSeats.map((s) => ({
+                    showtimeId: newSt.id,
+                    seatId: s.id,
+                    status: "AVAILABLE",
+                  })),
+                  skipDuplicates: true,
+                })
+              }
+            }
+          }
+        }
+      }
+      console.log("Seeded sample showtimes across cinemas!")
     }
   }
 }

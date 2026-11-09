@@ -103,12 +103,21 @@ export default function MoviesPage() {
                                             {movie.genres.map((g) => g.name).join(", ")}
                                         </p>
 
-                                        <Link
-                                            to={`/movies/${movie.id}`}
-                                            className="button button-primary card-button"
-                                        >
-                                            Xem chi tiết
-                                        </Link>
+                                        {status === "coming_soon" || movie.status === "coming_soon" ? (
+                                            <Link
+                                                to={`/movies/${movie.id}`}
+                                                className="button button-primary card-button"
+                                            >
+                                                Chi tiết
+                                            </Link>
+                                        ) : (
+                                            <Link
+                                                to={`/movies/${movie.id}`}
+                                                className="button button-primary card-button"
+                                            >
+                                                MUA VÉ
+                                            </Link>
+                                        )}
                                     </div>
                                 </article>
                             ))}

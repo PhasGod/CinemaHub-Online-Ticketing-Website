@@ -49,12 +49,21 @@ function MovieCard({ movie }: { movie: Movie }) {
                     </p>
                 )}
 
-                <Link
-                    to={`/movies/${movie.id}`}
-                    className="button button-primary card-button"
-                >
-                    Xem chi tiết
-                </Link>
+                {movie.status === "coming_soon" ? (
+                    <Link
+                        to={`/movies/${movie.id}`}
+                        className="button button-primary card-button"
+                    >
+                        Chi tiết
+                    </Link>
+                ) : (
+                    <Link
+                        to={`/movies/${movie.id}`}
+                        className="button button-primary card-button"
+                    >
+                        MUA VÉ
+                    </Link>
+                )}
             </div>
         </article>
     )
@@ -123,7 +132,7 @@ export default function HomePage() {
 
     return (
         <main>
-            <div className="container home-top">
+            <div className="container home-top pt-2 sm:pt-4">
                 {featured ? (
                     <section className="hero">
                         {featured.poster && (
@@ -207,7 +216,7 @@ export default function HomePage() {
                 </div>
             </div>
 
-            <section className="container section-block">
+            <section className="container section-block max-w-7xl mx-auto px-4 xl:px-36 2xl:px-44">
                 <div className="section-heading">
                     <div>
                         <span className="eyebrow">Khám phá điện ảnh</span>
@@ -231,7 +240,7 @@ export default function HomePage() {
             </section>
 
             <section className="upcoming-bg">
-                <div className="container section-block">
+                <div className="container section-block max-w-7xl mx-auto px-4 xl:px-36 2xl:px-44">
                     <div className="section-heading">
                         <div>
                             <span className="eyebrow">Khám phá điện ảnh</span>
