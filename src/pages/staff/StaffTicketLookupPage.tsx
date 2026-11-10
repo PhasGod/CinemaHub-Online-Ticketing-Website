@@ -20,7 +20,7 @@ import {
   Copy,
   RefreshCw,
 } from "lucide-react"
-import { staffSearchTickets, staffCheckInTicket } from "../../services/bookingApi"
+import { staffSearchTickets, staffCheckInTicket, cancelTicket } from "../../services/bookingApi"
 import { TicketItem } from "../../types/booking"
 
 export default function StaffTicketLookupPage() {
@@ -33,6 +33,7 @@ export default function StaffTicketLookupPage() {
   // Selected ticket for Detail Modal
   const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null)
   const [checkingInCode, setCheckingInCode] = useState<string | null>(null)
+  const [cancellingTicketId, setCancellingTicketId] = useState<string | null>(null)
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
@@ -79,6 +80,28 @@ export default function StaffTicketLookupPage() {
       alert(err.message || "Không thể soát vé")
     } finally {
       setCheckingInCode(null)
+    }
+  }
+
+  const handleStaffCancelTicket = async (ticket: TicketItem) => {
+    if (!window.confirm("Bạn có chắc chắn muốn hủy vé này? Ghế ngồi sẽ được giải phóng.")) return
+
+    setCancellingTicketId(ticket.id)
+    setActionSuccessMessage(null)
+    try {
+      await cancelTicket(ticket.id)
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticket.id ? { ...t, status: "CANCELLED" } : t))
+      )
+      if (selectedTicket && selectedTicket.id === ticket.id) {
+        setSelectedTicket({ ...selectedTicket, status: "CANCELLED" })
+      }
+      setActionSuccessMessage(`Đã hủy vé thành công: ${ticket.ticketCode}`)
+      setTimeout(() => setActionSuccessMessage(null), 4000)
+    } catch (err: any) {
+      alert(err.message || "Không thể hủy vé")
+    } finally {
+      setCancellingTicketId(null)
     }
   }
 
@@ -442,15 +465,25 @@ export default function StaffTicketLookupPage() {
                 Đóng
               </button>
               {selectedTicket.status === "VALID" && (
-                <button
-                  type="button"
-                  onClick={() => handleManualCheckIn(selectedTicket.ticketCode)}
-                  disabled={checkingInCode === selectedTicket.ticketCode}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm"
-                >
-                  <Check size={15} />
-                  Xác nhận soát vé
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleStaffCancelTicket(selectedTicket)}
+                    disabled={cancellingTicketId === selectedTicket.id}
+                    className="px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition cursor-pointer"
+                  >
+                    Hủy vé
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleManualCheckIn(selectedTicket.ticketCode)}
+                    disabled={checkingInCode === selectedTicket.ticketCode}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                  >
+                    <Check size={15} />
+                    Xác nhận soát vé
+                  </button>
+                </>
               )}
             </div>
           </div>

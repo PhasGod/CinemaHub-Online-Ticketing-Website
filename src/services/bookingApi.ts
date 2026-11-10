@@ -112,6 +112,18 @@ export async function getMyTickets(): Promise<{ tickets: TicketItem[] }> {
   return apiFetch<{ tickets: TicketItem[] }>("/tickets/my-tickets")
 }
 
+export async function cancelTicket(ticketId: string | number): Promise<{ success: boolean; message: string }> {
+  return apiFetch<{ success: boolean; message: string }>(`/tickets/${ticketId}/cancel`, {
+    method: "POST",
+  })
+}
+
+export async function cancelBooking(bookingId: string | number): Promise<{ success: boolean; message: string }> {
+  return apiFetch<{ success: boolean; message: string }>(`/bookings/${bookingId}/cancel`, {
+    method: "POST",
+  })
+}
+
 export async function getBookingById(bookingId: string | number): Promise<{ booking: BookingDetail }> {
   return apiFetch<{ booking: BookingDetail }>(`/bookings/${bookingId}`)
 }

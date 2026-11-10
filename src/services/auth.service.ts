@@ -1,21 +1,32 @@
 import { apiFetch } from "./api"
 import { User, LoginPayload, RegisterPayload, UpdateProfilePayload } from "../types/auth"
 
-export async function loginApi(payload: LoginPayload): Promise<{ message: string; user: User }> {
-  return apiFetch<{ message: string; user: User }>("/auth/login", {
+export async function loginApi(payload: LoginPayload): Promise<{ message: string; user: User; token?: string }> {
+  const res = await apiFetch<{ message: string; user: User; token?: string }>("/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),
   })
+  if (res.token && typeof localStorage !== "undefined") {
+    localStorage.setItem("session_token", res.token)
+  }
+  return res
 }
 
-export async function registerApi(payload: RegisterPayload): Promise<{ message: string; user: User }> {
-  return apiFetch<{ message: string; user: User }>("/auth/register", {
+export async function registerApi(payload: RegisterPayload): Promise<{ message: string; user: User; token?: string }> {
+  const res = await apiFetch<{ message: string; user: User; token?: string }>("/auth/register", {
     method: "POST",
     body: JSON.stringify(payload),
   })
+  if (res.token && typeof localStorage !== "undefined") {
+    localStorage.setItem("session_token", res.token)
+  }
+  return res
 }
 
 export async function logoutApi(): Promise<{ message: string }> {
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("session_token")
+  }
   return apiFetch<{ message: string }>("/auth/logout", {
     method: "POST",
   })

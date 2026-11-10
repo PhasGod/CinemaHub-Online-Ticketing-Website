@@ -110,7 +110,7 @@ export function AdminGenresPage() {
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Tag size={24} className="text-blue-600" /> Quản lý thể loại phim
           </h1>
-          <p className="text-sm text-slate-500 mt-1">US.05 — {genres.length} thể loại</p>
+          <p className="text-sm text-slate-500 mt-1"> {genres.length} thể loại</p>
         </div>
         <div className="flex gap-2">
           <button onClick={loadGenres} className="px-3 py-2.5 border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 text-sm flex items-center gap-2">
