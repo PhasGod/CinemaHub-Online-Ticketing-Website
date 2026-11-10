@@ -3,6 +3,7 @@ import {
   holdSeats,
   payBooking,
   releaseSeats,
+  cancelBooking,
   getMyBookings,
   getBookingById,
   resendBookingEmail,
@@ -17,7 +18,8 @@ router.post("/pay", authenticate, payBooking)
 router.post("/:id/pay", authenticate, payBooking)
 router.post("/:id/send-email", authenticate, resendBookingEmail)
 router.post("/release", authenticate, releaseSeats)
-router.post("/:id/cancel", authenticate, releaseSeats)
+router.post("/:id/cancel", authenticate, cancelBooking)
+router.post("/cancel/:id", authenticate, cancelBooking)
 router.get("/my-bookings", authenticate, getMyBookings)
 router.get("/:id", authenticate, getBookingById)
 

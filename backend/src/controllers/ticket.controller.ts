@@ -587,3 +587,218 @@ export async function resendTicketEmail(req: AuthRequest, res: Response) {
       .json({ error: "Lỗi hệ thống khi gửi lại vé qua email" })
   }
 }
+
+// POST /api/tickets/:id/cancel (Yêu cầu đăng nhập)
+export async function cancelTicket(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: "Yêu cầu đăng nhập" })
+    }
+
+    const ticketIdentifier = req.params["id"] as string
+    if (!ticketIdentifier) {
+      return res.status(400).json({ success: false, error: "Thiếu mã định danh vé" })
+    }
+
+    // 1. Tìm vé theo id hoặc ticketCode
+    let ticket = await prisma.ticket.findFirst({
+      where: {
+        OR: [
+          { id: ticketIdentifier },
+          { ticketCode: ticketIdentifier },
+        ],
+      },
+      include: {
+        booking: {
+          include: {
+            payment: true,
+            tickets: true,
+          },
+        },
+        seat: true,
+        showtime: true,
+      },
+    })
+
+    // Nếu không tìm thấy vé, kiểm tra xem có phải truyền bookingId hoặc bookingCode không
+    if (!ticket) {
+      const booking = await prisma.booking.findFirst({
+        where: {
+          OR: [
+            { id: ticketIdentifier },
+            { bookingCode: ticketIdentifier },
+          ],
+        },
+        include: {
+          payment: true,
+          tickets: {
+            include: {
+              seat: true,
+              showtime: true,
+            },
+          },
+        },
+      })
+
+      if (!booking) {
+        return res.status(404).json({ success: false, error: "Không tìm thấy vé hoặc đơn đặt vé hợp lệ" })
+      }
+
+      // Kiểm tra quyền đối với booking
+      const isBookingOwner = booking.userId === req.user.id
+      const isStaffOrAdmin = req.user.role === "admin" || req.user.role === "staff"
+      if (!isBookingOwner && !isStaffOrAdmin) {
+        return res.status(403).json({ success: false, error: "Bạn không có quyền hủy vé này" })
+      }
+
+      // Kiểm tra trạng thái vé trong booking
+      const hasUsedTicket = booking.tickets.some((t) => t.status === "USED")
+      if (hasUsedTicket) {
+        return res.status(400).json({ success: false, error: "Vé đã qua cửa, không thể hủy" })
+      }
+
+      if (booking.status === "CANCELLED" || (booking.tickets.length > 0 && booking.tickets.every((t) => t.status === "CANCELLED"))) {
+        return res.status(400).json({ success: false, error: "Vé này đã bị hủy trước đó" })
+      }
+
+      // Kiểm tra giờ chiếu cho các vé: Suất chiếu (Showtime.startTime) phải cách thời điểm hiện tại ít nhất 60 phút
+      const now = new Date()
+      for (const t of booking.tickets) {
+        const startTime = new Date(t.showtime.startTime)
+        const diffMinutes = (startTime.getTime() - now.getTime()) / (1000 * 60)
+        if (diffMinutes < 60) {
+          return res.status(400).json({
+            success: false,
+            error: "Chỉ được hủy vé trước giờ chiếu ít nhất 60 phút",
+          })
+        }
+      }
+
+      // Thực thi trong prisma.$transaction
+      await prisma.$transaction(async (tx) => {
+        // Cập nhật tất cả vé sang CANCELLED
+        await tx.ticket.updateMany({
+          where: { bookingId: booking.id },
+          data: { status: "CANCELLED" },
+        })
+
+        // Cập nhật booking sang CANCELLED
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: { status: "CANCELLED" },
+        })
+
+        // Giải phóng ghế: tìm ShowtimeSeat ứng với showtimeId và seatId
+        for (const t of booking.tickets) {
+          await tx.showtimeSeat.updateMany({
+            where: {
+              showtimeId: t.showtimeId,
+              seatId: t.seatId,
+            },
+            data: {
+              status: "AVAILABLE",
+              heldByUserId: null,
+              holdExpiresAt: null,
+            },
+          })
+        }
+
+        // Cập nhật Payment nếu có -> Đánh dấu hoàn tiền (status: FAILED)
+        if (booking.payment) {
+          await tx.payment.update({
+            where: { id: booking.payment.id },
+            data: { status: "FAILED" },
+          })
+        }
+      })
+
+      return res.status(200).json({
+        success: true,
+        message: "Hủy vé thành công",
+      })
+    }
+
+    // Trường hợp tìm thấy vé theo id hoặc ticketCode:
+    // Kiểm tra quyền
+    const isOwner = ticket.booking.userId === req.user.id
+    const isStaffOrAdmin = req.user.role === "admin" || req.user.role === "staff"
+    if (!isOwner && !isStaffOrAdmin) {
+      return res.status(403).json({ success: false, error: "Bạn không có quyền hủy vé này" })
+    }
+
+    // Kiểm tra trạng thái vé
+    if (ticket.status === "USED") {
+      return res.status(400).json({ success: false, error: "Vé đã qua cửa, không thể hủy" })
+    }
+
+    if (ticket.status === "CANCELLED") {
+      return res.status(400).json({ success: false, error: "Vé này đã bị hủy trước đó" })
+    }
+
+    // Kiểm tra giờ chiếu: Suất chiếu (Showtime.startTime) phải cách thời điểm hiện tại ít nhất 60 phút
+    const now = new Date()
+    const startTime = new Date(ticket.showtime.startTime)
+    const diffMinutes = (startTime.getTime() - now.getTime()) / (1000 * 60)
+    if (diffMinutes < 60) {
+      return res.status(400).json({
+        success: false,
+        error: "Chỉ được hủy vé trước giờ chiếu ít nhất 60 phút",
+      })
+    }
+
+    // Thực thi trong prisma.$transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Cập nhật Ticket.status = 'CANCELLED'
+      await tx.ticket.update({
+        where: { id: ticket.id },
+        data: { status: "CANCELLED" },
+      })
+
+      // 2. Cập nhật Booking.status = 'CANCELLED' nếu không còn vé nào chưa bị hủy
+      const remainingActiveTickets = await tx.ticket.count({
+        where: {
+          bookingId: ticket.bookingId,
+          id: { not: ticket.id },
+          status: { not: "CANCELLED" },
+        },
+      })
+
+      if (remainingActiveTickets === 0) {
+        await tx.booking.update({
+          where: { id: ticket.bookingId },
+          data: { status: "CANCELLED" },
+        })
+
+        // Cập nhật Payment (nếu có): Đánh dấu trạng thái hoàn tiền (FAILED)
+        if (ticket.booking.payment) {
+          await tx.payment.update({
+            where: { id: ticket.booking.payment.id },
+            data: { status: "FAILED" },
+          })
+        }
+      }
+
+      // 3. Giải phóng ghế: Tìm bản ghi ShowtimeSeat ứng với showtimeId và seatId, cập nhật status = 'AVAILABLE', xóa heldByUserId và holdExpiresAt
+      await tx.showtimeSeat.updateMany({
+        where: {
+          showtimeId: ticket.showtimeId,
+          seatId: ticket.seatId,
+        },
+        data: {
+          status: "AVAILABLE",
+          heldByUserId: null,
+          holdExpiresAt: null,
+        },
+      })
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: "Hủy vé thành công",
+    })
+  } catch (error) {
+    console.error("Cancel ticket error:", error)
+    return res.status(500).json({ success: false, error: "Lỗi hệ thống khi hủy vé" })
+  }
+}
+

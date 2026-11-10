@@ -6,6 +6,7 @@ import {
   getStaffStats,
   searchStaffTickets,
   resendTicketEmail,
+  cancelTicket,
 } from "../controllers/ticket.controller.js"
 import { authenticate, requireRole } from "../middleware/auth.js"
 
@@ -13,6 +14,10 @@ const router = Router()
 
 // Customer tickets
 router.get("/my-tickets", authenticate, getMyTickets)
+
+// Cancel ticket endpoints (Customer, Staff, Admin)
+router.post("/:id/cancel", authenticate, cancelTicket)
+router.post("/cancel/:id", authenticate, cancelTicket)
 
 // Staff stats & search (Must be before /:ticketCode)
 router.get("/staff/stats", authenticate, requireRole("admin", "staff"), getStaffStats)

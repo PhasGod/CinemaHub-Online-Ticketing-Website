@@ -13,9 +13,10 @@ import {
   X,
   Loader2,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { getMyTickets } from "../services/bookingApi"
+import { getMyTickets, cancelTicket } from "../services/bookingApi"
 import { TicketItem, BookingDetail, ShowtimeDetail } from "../types/booking"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -125,9 +126,11 @@ function downloadTicketQr(ticketCode: string, qrCode?: string) {
 export function TicketDetailModal({
   ticket,
   onClose,
+  onCancelTicket,
 }: {
   ticket: TicketItem | null
   onClose: () => void
+  onCancelTicket?: (ticket: TicketItem) => void
 }) {
   const navigate = useNavigate()
 
@@ -154,6 +157,14 @@ export function TicketDetailModal({
   const isUsed = ticket.status === "USED"
   const isCancelled = ticket.status === "CANCELLED"
   const isValid = ticket.status === "VALID"
+
+  const canCancel = (t: TicketItem) => {
+    if (t.status !== "VALID") return false
+    if (!t.showtime?.startTime) return false
+    const showtimeStart = new Date(t.showtime.startTime).getTime()
+    const diffMinutes = (showtimeStart - Date.now()) / (1000 * 60)
+    return diffMinutes >= 60
+  }
 
   return (
     <div
@@ -197,7 +208,7 @@ export function TicketDetailModal({
                   "text-xs px-2.5 py-0.5 rounded-full font-semibold border",
                   isValid && "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
                   isUsed && "bg-slate-500/20 text-slate-300 border-slate-500/30",
-                  isCancelled && "bg-rose-500/20 text-rose-400 border-rose-500/30",
+                  isCancelled && "bg-slate-200 text-slate-700 border-slate-300",
                 )}
               >
                 {isValid ? "Hợp lệ / Đã thanh toán" : isUsed ? "Đã soát vé" : "Đã hủy"}
@@ -252,7 +263,7 @@ export function TicketDetailModal({
 
           {/* QR Code section */}
           <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 flex flex-col items-center text-center">
-            <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 mb-2">
+            <div className={cn("bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200 mb-2 relative", isCancelled && "opacity-30 grayscale")}>
               {ticket.qrCode ? (
                 <img
                   src={ticket.qrCode}
@@ -262,19 +273,34 @@ export function TicketDetailModal({
               ) : (
                 <QrCode size={130} className="text-slate-900" strokeWidth={1.4} />
               )}
+              {isCancelled && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-bold text-slate-700 bg-white/95 px-3 py-1 rounded-full border border-slate-300 shadow-md">
+                    MÃ QR ĐÃ VÔ HIỆU
+                  </span>
+                </div>
+              )}
             </div>
             <span className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold mt-1">
               Mã đặt vé
             </span>
-            <b className="text-2xl font-mono font-extrabold text-blue-600 tracking-wider">
+            <b className={cn("text-2xl font-mono font-extrabold tracking-wider", isCancelled ? "text-slate-400 line-through" : "text-blue-600")}>
               {ticket.ticketCode}
             </b>
-            <p className="text-xs text-slate-500 mt-1.5 max-w-xs">
-              <div className="mt-2 mb-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-                🎟️ MÃ QR CHECK-IN VÀO RẠP (Không phải mã thanh toán)
-              </div>
-              Quét mã này tại quầy vé hoặc cổng vào phòng chiếu trước giờ phim chiếu 15 phút.
-            </p>
+            <div className="text-xs text-slate-500 mt-1.5 max-w-xs">
+              {isCancelled ? (
+                <div className="mt-2 mb-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200">
+                  🚫 VÉ ĐÃ BỊ HỦY - KHÔNG CÒN GIÁ TRỊ VÀO RẠP
+                </div>
+              ) : (
+                <>
+                  <div className="mt-2 mb-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                    🎟️ MÃ QR CHECK-IN VÀO RẠP (Không phải mã thanh toán)
+                  </div>
+                  Quét mã này tại quầy vé hoặc cổng vào phòng chiếu trước giờ phim chiếu 15 phút.
+                </>
+              )}
+            </div>
           </div>
 
           {/* Detailed breakdown */}
@@ -324,15 +350,29 @@ export function TicketDetailModal({
           >
             <Ticket size={16} /> Xem trang vé đầy đủ
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              downloadTicketQr(ticket.ticketCode, ticket.qrCode)
-            }}
-            className="py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Download size={16} /> Tải vé
-          </button>
+          {!isCancelled && (
+            <button
+              type="button"
+              onClick={() => {
+                downloadTicketQr(ticket.ticketCode, ticket.qrCode)
+              }}
+              className="py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Download size={16} /> Tải vé
+            </button>
+          )}
+          {onCancelTicket && canCancel(ticket) && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                onCancelTicket(ticket)
+              }}
+              className="py-2.5 px-4 rounded-xl border border-red-300 bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-sm transition-colors cursor-pointer"
+            >
+              Hủy vé
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -539,30 +579,64 @@ export default function TicketsPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null)
 
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    setError(null)
+  // Quản lý trạng thái Hủy vé
+  const [ticketToCancel, setTicketToCancel] = useState<TicketItem | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [cancelSuccess, setCancelSuccess] = useState<string | null>(null)
 
-    getMyTickets()
-      .then((res) => {
-        if (active) {
-          setTickets(res.tickets || [])
-        }
-      })
-      .catch((err: any) => {
-        if (active) {
-          setError(err.message || "Không thể tải danh sách vé của bạn")
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-
-    return () => {
-      active = false
+  const loadTickets = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await getMyTickets()
+      setTickets(res.tickets || [])
+    } catch (err: any) {
+      setError(err.message || "Không thể tải danh sách vé của bạn")
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    loadTickets()
   }, [])
+
+  const isCancelEligible = (t: TicketItem) => {
+    if (t.status !== "VALID") return false
+    if (!t.showtime?.startTime) return false
+    const showtimeStart = new Date(t.showtime.startTime).getTime()
+    const diffMinutes = (showtimeStart - Date.now()) / (1000 * 60)
+    return diffMinutes >= 60
+  }
+
+  const handleConfirmCancel = async () => {
+    if (!ticketToCancel) return
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      await cancelTicket(ticketToCancel.id)
+
+      // Cập nhật ngay trạng thái sang 'CANCELLED' trong state cục bộ
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketToCancel.id ? { ...t, status: "CANCELLED" } : t
+        )
+      )
+
+      const cancelledCode = ticketToCancel.ticketCode
+      setTicketToCancel(null)
+      setCancelSuccess(`Hủy vé ${cancelledCode} thành công! Ghế ngồi đã được giải phóng.`)
+      setTimeout(() => setCancelSuccess(null), 5000)
+
+      // Tải lại danh sách vé từ server
+      await loadTickets()
+    } catch (err: any) {
+      setCancelError(err?.message || "Không thể hủy vé. Vui lòng thử lại sau.")
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   const now = new Date()
 
@@ -622,6 +696,14 @@ export default function TicketsPage() {
           <h1>Vé của tôi</h1>
         </div>
 
+        {/* Thông báo thao tác thành công */}
+        {cancelSuccess && (
+          <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center gap-2.5 shadow-xs">
+            <Check size={18} className="text-emerald-600 shrink-0" />
+            <span>{cancelSuccess}</span>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="tabs wide">
           <button
@@ -666,9 +748,21 @@ export default function TicketsPage() {
                   alt={ticket.showtime?.movie?.title || "Phim"}
                 />
                 <div className="my-ticket-main">
-                  <span className="format-badge">
-                    {ticket.showtime?.movie?.format || "2D DIGITAL"}
-                  </span>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="format-badge">
+                      {ticket.showtime?.movie?.format || "2D DIGITAL"}
+                    </span>
+                    {ticket.status === "CANCELLED" && (
+                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-slate-200 text-slate-700 border border-slate-300">
+                        ĐÃ HỦY
+                      </span>
+                    )}
+                    {ticket.status === "USED" && (
+                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                        ĐÃ SOÁT VÉ
+                      </span>
+                    )}
+                  </div>
                   <h2>{ticket.showtime?.movie?.title || "Phim điện ảnh"}</h2>
                   <p>
                     <MapPin size={16} /> {ticket.showtime?.room?.cinema?.name || "5TOP CINEMA"}
@@ -690,25 +784,50 @@ export default function TicketsPage() {
                   </b>
                 </div>
                 <div className="my-ticket-code">
-                  <div className="w-20 h-20 mb-2 flex items-center justify-center">
-                    {ticket.qrCode ? (
-                      <img
-                        src={ticket.qrCode}
-                        alt={`QR ${ticket.ticketCode}`}
-                        className="w-20 h-20 object-contain"
-                      />
-                    ) : (
-                      <QrCode size={80} />
+                  <div className="w-20 h-20 mb-2 flex items-center justify-center relative">
+                    <div className={cn(ticket.status === "CANCELLED" && "opacity-25 grayscale filter")}>
+                      {ticket.qrCode ? (
+                        <img
+                          src={ticket.qrCode}
+                          alt={`QR ${ticket.ticketCode}`}
+                          className="w-20 h-20 object-contain"
+                        />
+                      ) : (
+                        <QrCode size={80} />
+                      )}
+                    </div>
+                    {ticket.status === "CANCELLED" && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-slate-700 bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 shadow-xs">
+                          ĐÃ HỦY
+                        </span>
+                      </div>
                     )}
                   </div>
                   <span>Mã vé</span>
-                  <b>{ticket.ticketCode}</b>
-                  <button
-                    className="button button-primary"
-                    onClick={() => setSelectedTicket(ticket)}
-                  >
-                    Xem vé
-                  </button>
+                  <b className={cn(ticket.status === "CANCELLED" && "line-through text-slate-400")}>
+                    {ticket.ticketCode}
+                  </b>
+                  <div className="w-full flex flex-col gap-1.5 mt-2">
+                    <button
+                      className="button button-primary w-full"
+                      onClick={() => setSelectedTicket(ticket)}
+                    >
+                      Xem vé
+                    </button>
+                    {tab === "upcoming" && isCancelEligible(ticket) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCancelError(null)
+                          setTicketToCancel(ticket)
+                        }}
+                        className="w-full py-1.5 px-3 rounded-lg border border-red-300 bg-red-50 text-red-600 hover:bg-red-100 font-semibold text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        Hủy vé
+                      </button>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}
@@ -744,7 +863,90 @@ export default function TicketsPage() {
           <TicketDetailModal
             ticket={selectedTicket}
             onClose={() => setSelectedTicket(null)}
+            onCancelTicket={(ticket) => {
+              setCancelError(null)
+              setTicketToCancel(ticket)
+            }}
           />
+        )}
+
+        {/* Modal xác nhận hủy vé */}
+        {ticketToCancel && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+            onClick={() => !cancelling && setTicketToCancel(null)}
+          >
+            <div
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 border border-slate-100 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 border border-red-200">
+                <AlertTriangle size={28} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">Xác nhận hủy vé</h3>
+              <p className="text-sm text-slate-600 mb-5">
+                Bạn có chắc chắn muốn hủy vé này? Ghế ngồi sẽ được giải phóng.
+              </p>
+
+              {/* Tóm tắt thông tin vé */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 text-left text-xs space-y-2 mb-5 text-slate-700">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Mã vé:</span>
+                  <span className="font-mono font-bold text-blue-600">{ticketToCancel.ticketCode}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Phim:</span>
+                  <span className="font-semibold text-slate-900 truncate max-w-[200px]">
+                    {ticketToCancel.showtime?.movie?.title || "Phim điện ảnh"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Suất chiếu:</span>
+                  <span className="font-semibold text-slate-800">
+                    {formatTime(ticketToCancel.showtime?.startTime)} — {formatDate(ticketToCancel.showtime?.startTime)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Rạp &amp; Ghế:</span>
+                  <span className="font-bold text-amber-600">
+                    {ticketToCancel.showtime?.room?.cinema?.name} · Ghế {ticketToCancel.seat?.row}{ticketToCancel.seat?.number}
+                  </span>
+                </div>
+              </div>
+
+              {cancelError && (
+                <div className="mb-4 p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 text-left flex items-start gap-2">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-600" />
+                  <span>{cancelError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  disabled={cancelling}
+                  onClick={() => setTicketToCancel(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-sm transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  disabled={cancelling}
+                  onClick={handleConfirmCancel}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Đang hủy...
+                    </>
+                  ) : (
+                    "Xác nhận hủy"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </section>
     </main>
