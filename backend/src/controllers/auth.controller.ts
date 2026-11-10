@@ -23,10 +23,15 @@ const updateProfileSchema = z.object({
   phone: z.string().optional().nullable(),
 })
 
+const isProduction =
+  process.env.NODE_ENV === "production" ||
+  process.env.RENDER === "true" ||
+  Boolean(process.env.RENDER_EXTERNAL_URL)
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  secure: isProduction,
+  sameSite: (isProduction ? "none" : "lax") as "none" | "lax",
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 }
@@ -80,6 +85,7 @@ export async function register(req: AuthRequest, res: Response) {
 
     return res.status(201).json({
       message: "Đăng ký tài khoản thành công",
+      token,
       user: {
         id: user.id,
         email: user.email,
@@ -138,6 +144,7 @@ export async function login(req: AuthRequest, res: Response) {
 
     return res.json({
       message: "Đăng nhập thành công",
+      token,
       user: {
         id: user.id,
         email: user.email,
@@ -157,7 +164,7 @@ export async function logout(req: AuthRequest, res: Response) {
   try {
     const token = req.cookies?.session_token || req.headers.authorization?.replace("Bearer ", "")
     if (token) await prisma.session.deleteMany({ where: { token } })
-    res.clearCookie("session_token", { path: "/" })
+    res.clearCookie("session_token", COOKIE_OPTIONS)
     return res.json({ message: "Đăng xuất thành công" })
   } catch (error) {
     console.error("Logout error:", error)
