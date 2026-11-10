@@ -207,7 +207,7 @@ export function AdminUsersPage() {
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Users size={24} className="text-blue-600" /> Quản lý tài khoản nhân viên
           </h1>
-          <p className="text-sm text-slate-500 mt-1">US.04 — Tổng {pagination.total} tài khoản</p>
+          <p className="text-sm text-slate-500 mt-1">Tổng {pagination.total} tài khoản</p>
         </div>
         <button onClick={() => { setEditUser(null); setShowModal(true) }}
           className="button button-primary flex items-center gap-2 px-4 py-2.5">

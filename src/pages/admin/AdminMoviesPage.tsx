@@ -313,7 +313,7 @@ export function AdminMoviesPage() {
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Film size={24} className="text-blue-600" /> Quản lý phim
           </h1>
-          <p className="text-sm text-slate-500 mt-1">US.06 — Tổng {pagination.total} bộ phim</p>
+          <p className="text-sm text-slate-500 mt-1">Tổng {pagination.total} bộ phim</p>
         </div>
         <button onClick={() => { setEditMovie(null); setShowModal(true) }}
           className="button button-primary flex items-center gap-2 px-4 py-2.5">

@@ -1,10 +1,12 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api"
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "/api"
+const API_BASE_URL = rawBaseUrl.replace(/\/+$/, "")
 
 export async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+  const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${cleanEndpoint}`
 
   const headers = new Headers(options.headers || {})
   if (!["GET", "HEAD", "OPTIONS"].includes((options.method || "GET").toUpperCase())) {
@@ -12,6 +14,12 @@ export async function apiFetch<T>(
   }
   if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json")
+  }
+
+  // Dual auth: support token from localStorage alongside cookies for cross-domain resilience
+  const storedToken = typeof localStorage !== "undefined" ? localStorage.getItem("session_token") : null
+  if (storedToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${storedToken}`)
   }
 
   const config: RequestInit = {
