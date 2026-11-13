@@ -2,6 +2,7 @@ import { Request, Response } from "express"
 import { z } from "zod"
 import { prisma } from "../config/db.js"
 import { AuthRequest } from "../middleware/auth.js"
+import { getDynamicMovieStatus } from "./movie.controller.js"
 
 const createShowtimeSchema = z.object({
   movieId: z.string().min(1, "Vui lòng chọn phim"),
@@ -61,6 +62,13 @@ export async function createShowtime(req: AuthRequest, res: Response) {
 
     if (!movie) {
       return res.status(404).json({ error: "Không tìm thấy phim tương ứng" })
+    }
+
+    const dynamicMovieStatus = getDynamicMovieStatus(movie.releaseDate, movie.status)
+    if (dynamicMovieStatus === "ENDED") {
+      return res.status(400).json({
+        error: "Phim đã ngừng chiếu (đã quá 5 tuần từ ngày khởi chiếu), không thể tạo thêm suất chiếu.",
+      })
     }
 
     if (!room) {
@@ -166,6 +174,14 @@ export async function getShowtimes(req: Request, res: Response) {
 
     const where: any = {
       status: "ACTIVE",
+    }
+
+    const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000)
+    where.movie = {
+      OR: [
+        { releaseDate: { gte: thirtyFiveDaysAgo } },
+        { releaseDate: null, status: { not: "ended" } },
+      ],
     }
 
     if (movieId) {

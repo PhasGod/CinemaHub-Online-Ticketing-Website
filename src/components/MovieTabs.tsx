@@ -18,9 +18,10 @@ const specialScreeningSlugs = new Set([
 ])
 
 function toDisplayMovie(movie: Movie): MovieCardData {
+  const isUpcoming = movie.status === "coming_soon" || movie.status === "UPCOMING"
   const status: MovieStatus = specialScreeningSlugs.has(movie.slug)
     ? "special-screening"
-    : movie.status === "coming_soon" ? "coming-soon" : "now-showing"
+    : isUpcoming ? "coming-soon" : "now-showing"
   const releaseDate = movie.releaseDate
     ? new Intl.DateTimeFormat("vi-VN", { timeZone: "UTC" }).format(new Date(movie.releaseDate))
     : "Đang cập nhật"

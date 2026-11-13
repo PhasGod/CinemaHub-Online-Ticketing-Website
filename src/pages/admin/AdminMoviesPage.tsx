@@ -20,11 +20,21 @@ function Toast({ msg, type, onClose }: { msg: string; type: "success" | "error";
   )
 }
 
-const STATUS_LABELS: Record<string, string> = { coming_soon: "Sắp chiếu", showing: "Đang chiếu", ended: "Đã kết thúc" }
+const STATUS_LABELS: Record<string, string> = {
+  coming_soon: "Sắp chiếu",
+  UPCOMING: "Sắp chiếu",
+  showing: "Đang chiếu",
+  NOW_SHOWING: "Đang chiếu",
+  ended: "Đã ngừng chiếu (Quá 5 tuần)",
+  ENDED: "Đã ngừng chiếu (Quá 5 tuần)",
+}
 const STATUS_COLORS: Record<string, string> = {
   coming_soon: "bg-amber-100 text-amber-800",
+  UPCOMING: "bg-amber-100 text-amber-800",
   showing: "bg-emerald-100 text-emerald-800",
+  NOW_SHOWING: "bg-emerald-100 text-emerald-800",
   ended: "bg-slate-100 text-slate-600",
+  ENDED: "bg-slate-100 text-slate-600",
 }
 
 function MovieModal({
@@ -283,7 +293,13 @@ export function AdminMoviesPage() {
     setIsLoading(true)
     try {
       const [moviesRes, genresRes] = await Promise.all([
-        adminGetMovies({ q: search, status: statusFilter || undefined, page, limit: 10 }),
+        adminGetMovies({
+          q: search,
+          status: statusFilter || undefined,
+          page,
+          limit: 10,
+          includeEnded: true,
+        }),
         adminGetGenres(),
       ])
       setMovies(moviesRes.movies)
@@ -333,7 +349,7 @@ export function AdminMoviesPage() {
           <option value="">Tất cả trạng thái</option>
           <option value="showing">Đang chiếu</option>
           <option value="coming_soon">Sắp chiếu</option>
-          <option value="ended">Đã kết thúc</option>
+          <option value="ended">Đã ngừng chiếu (Quá 5 tuần)</option>
         </select>
         <button onClick={() => loadAll(1)} className="px-4 py-2.5 border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 text-sm flex items-center gap-2">
           <RefreshCw size={15} />
@@ -385,8 +401,8 @@ export function AdminMoviesPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[m.status]}`}>
-                        {STATUS_LABELS[m.status]}
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[m.status] || "bg-slate-100 text-slate-600"}`}>
+                        {STATUS_LABELS[m.status] || m.status}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">

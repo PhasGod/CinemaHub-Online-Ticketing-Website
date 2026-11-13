@@ -21,6 +21,9 @@ interface RevenueChartProps {
 export default function RevenueChart({ data, timeRangeLabel }: RevenueChartProps) {
   const [metricView, setMetricView] = useState<"all" | "revenue" | "tickets">("all")
 
+  const isAllZero = !data || data.length === 0 || data.every((d) => (d.revenue || 0) === 0 && (d.tickets || 0) === 0)
+  const chartData = data && data.length > 0 ? data : [{ label: "Chưa có dữ liệu", revenue: 0, tickets: 0, fnbRevenue: 0 }]
+
   // Custom Tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -74,6 +77,11 @@ export default function RevenueChart({ data, timeRangeLabel }: RevenueChartProps
           <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
             <TrendingUp size={18} className="text-blue-600" />
             Xu Hướng Doanh Thu & Lượng Vé
+            {isAllZero && (
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-sans">
+                Chưa phát sinh giao dịch
+              </span>
+            )}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Dữ liệu thống kê doanh thu bán vé và sản lượng vé theo {timeRangeLabel.toLowerCase()}
@@ -121,7 +129,7 @@ export default function RevenueChart({ data, timeRangeLabel }: RevenueChartProps
       {/* Chart Container */}
       <div className="w-full h-72 sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <defs>
               <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />

@@ -89,7 +89,16 @@ export default function RecentTransactionsTable({ transactions }: RecentTransact
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
-            {transactions.map((tx) => (
+            {transactions.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                  <CreditCard size={32} className="mx-auto text-slate-300 stroke-1 mb-2" />
+                  <p className="font-semibold text-slate-600">Chưa có giao dịch đặt vé nào được ghi nhận</p>
+                  <p className="text-[11px] text-slate-400">Các đơn đặt vé mới thanh toán sẽ hiển thị tại đây theo thời gian thực.</p>
+                </td>
+              </tr>
+            ) : (
+              transactions.map((tx) => (
               <tr key={tx.id} className="hover:bg-slate-50/70 transition">
                 {/* Booking Code & Ticket count */}
                 <td className="py-3.5 px-4 whitespace-nowrap">
@@ -162,7 +171,7 @@ export default function RecentTransactionsTable({ transactions }: RecentTransact
                   </span>
                 </td>
               </tr>
-            ))}
+            )))}
           </tbody>
         </table>
       </div>

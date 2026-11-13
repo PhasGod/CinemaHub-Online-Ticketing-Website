@@ -16,6 +16,7 @@ import { csrfProtection } from "./middleware/security.js"
 import statsRoutes from "./routes/stats.routes.js"
 import promotionRoutes from "./routes/promotion.routes.js"
 import adminPromotionRoutes from "./routes/admin-promotion.routes.js"
+import adminRoutes from "./routes/admin.routes.js"
 
 dotenv.config()
 
@@ -98,6 +99,23 @@ const healthHandler = (_req: Request, res: Response) => {
 app.get("/health", healthHandler)
 app.get("/api/health", healthHandler)
 
+<<<<<<< Updated upstream
+// Routes
+app.use("/api/auth", authRoutes)
+app.use("/api/users", userRoutes)
+app.use("/api/genres", genreRoutes)
+app.use("/api/movies", movieRoutes)
+app.use("/api/cinemas", cinemaRoutes)
+app.use("/api/cinema", roomRoutes)
+app.use("/api/showtimes", showtimeRoutes)
+app.use("/api/bookings", bookingRoutes)
+app.use("/api/payments", paymentRoutes)
+app.use("/api/tickets", ticketRoutes)
+app.use("/api/staff/tickets", ticketRoutes)
+app.use("/api/stats", statsRoutes)
+app.use("/api/promotions", promotionRoutes)
+app.use("/api/admin/promotions", adminPromotionRoutes)
+=======
 // 5. Routes (đăng ký cả prefix /api và root để tương thích với mọi cấu hình URL frontend)
 const registerRoutes = (prefix: string) => {
   app.use(`${prefix}/auth`, authRoutes)
@@ -114,10 +132,12 @@ const registerRoutes = (prefix: string) => {
   app.use(`${prefix}/stats`, statsRoutes)
   app.use(`${prefix}/promotions`, promotionRoutes)
   app.use(`${prefix}/admin/promotions`, adminPromotionRoutes)
+  app.use(`${prefix}/admin`, adminRoutes)
 }
 
 registerRoutes("/api")
 registerRoutes("")
+>>>>>>> Stashed changes
 
 // Centralized 404 handler
 app.use((req: Request, res: Response) => {

@@ -88,7 +88,16 @@ export default function LiveShowtimesTable({ showtimes }: LiveShowtimesTableProp
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
-            {filtered.map((st) => (
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
+                  <MonitorPlay size={32} className="mx-auto text-slate-300 stroke-1 mb-2" />
+                  <p className="font-semibold text-slate-600">Chưa có suất chiếu nào phù hợp trong ngày</p>
+                  <p className="text-[11px] text-slate-400">Các suất chiếu mới khởi tạo sẽ hiển thị tại đây.</p>
+                </td>
+              </tr>
+            ) : (
+              filtered.map((st) => (
               <tr key={st.id} className="hover:bg-slate-50/70 transition">
                 {/* Poster & Movie Title */}
                 <td className="py-3.5 px-4">
@@ -182,7 +191,7 @@ export default function LiveShowtimesTable({ showtimes }: LiveShowtimesTableProp
                   </span>
                 </td>
               </tr>
-            ))}
+            )))}
           </tbody>
         </table>
       </div>

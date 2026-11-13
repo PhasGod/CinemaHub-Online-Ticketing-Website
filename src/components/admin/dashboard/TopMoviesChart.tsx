@@ -55,85 +55,97 @@ export default function TopMoviesChart({ movies }: TopMoviesChartProps) {
         <p className="text-xs text-slate-500 mt-0.5">Xếp hạng theo tổng doanh thu phòng vé</p>
       </div>
 
-      {/* Mini Horizontal Bar Chart */}
-      <div className="w-full h-44 mb-3">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={movies}
-            layout="vertical"
-            margin={{ top: 5, right: 15, left: 10, bottom: 5 }}
-          >
-            <XAxis
-              type="number"
-              stroke="#94a3b8"
-              fontSize={10}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => `${(v / 1000000).toFixed(0)}Tr`}
-            />
-            <YAxis
-              type="category"
-              dataKey="title"
-              stroke="#64748b"
-              fontSize={11}
-              tickLine={false}
-              axisLine={false}
-              width={100}
-              tickFormatter={(val) => (val.length > 12 ? `${val.substring(0, 12)}...` : val)}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="revenue" radius={[0, 6, 6, 0]} barSize={16}>
-              {movies.map((_, index) => (
-                <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Ranked Movie List Details */}
-      <div className="space-y-2 border-t border-slate-100 pt-3">
-        {movies.map((m, idx) => (
-          <div
-            key={m.id}
-            className="flex items-center justify-between gap-2 p-1.5 rounded-xl hover:bg-slate-50 transition text-xs"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span
-                className={`w-5 h-5 rounded-md flex items-center justify-center font-black text-[11px] shrink-0 ${
-                  idx === 0
-                    ? "bg-amber-100 text-amber-800 font-bold"
-                    : idx === 1
-                    ? "bg-slate-200 text-slate-700"
-                    : idx === 2
-                    ? "bg-amber-50 text-amber-700 border border-amber-200"
-                    : "bg-slate-100 text-slate-500"
-                }`}
+      {!movies || movies.length === 0 ? (
+        <div className="py-16 text-center text-slate-400 space-y-2.5 my-auto">
+          <Film size={36} className="mx-auto text-slate-300 stroke-1" />
+          <p className="font-semibold text-sm text-slate-700">Chưa có dữ liệu bán vé</p>
+          <p className="text-xs text-slate-400 max-w-[220px] mx-auto">
+            Khi rạp phát sinh giao dịch bán vé thực tế, danh sách phim doanh thu cao nhất sẽ hiển thị tại đây.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Mini Horizontal Bar Chart */}
+          <div className="w-full h-44 mb-3">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={movies}
+                layout="vertical"
+                margin={{ top: 5, right: 15, left: 10, bottom: 5 }}
               >
-                {idx + 1}
-              </span>
-
-              <img
-                src={m.poster}
-                alt={m.title}
-                className="w-7 h-10 object-cover rounded-md border border-slate-200 shrink-0 shadow-2xs"
-              />
-
-              <div className="min-w-0">
-                <p className="font-bold text-slate-800 truncate">{m.title}</p>
-                <p className="text-[11px] text-slate-400">{m.ticketsSold.toLocaleString("vi-VN")} vé</p>
-              </div>
-            </div>
-
-            <div className="text-right shrink-0">
-              <p className="font-black text-slate-900">{formatVND(m.revenue)}</p>
-              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-                {m.sharePercent}%
-              </span>
-            </div>
+                <XAxis
+                  type="number"
+                  stroke="#94a3b8"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `${(v / 1000000).toFixed(0)}Tr`}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="title"
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  width={100}
+                  tickFormatter={(val) => (val.length > 12 ? `${val.substring(0, 12)}...` : val)}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="revenue" radius={[0, 6, 6, 0]} barSize={16}>
+                  {movies.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        ))}
-      </div>
+
+          {/* Ranked Movie List Details */}
+          <div className="space-y-2 border-t border-slate-100 pt-3">
+            {movies.map((m, idx) => (
+              <div
+                key={m.id}
+                className="flex items-center justify-between gap-2 p-1.5 rounded-xl hover:bg-slate-50 transition text-xs"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`w-5 h-5 rounded-md flex items-center justify-center font-black text-[11px] shrink-0 ${
+                      idx === 0
+                        ? "bg-amber-100 text-amber-800 font-bold"
+                        : idx === 1
+                        ? "bg-slate-200 text-slate-700"
+                        : idx === 2
+                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {idx + 1}
+                  </span>
+
+                  <img
+                    src={m.poster}
+                    alt={m.title}
+                    className="w-7 h-10 object-cover rounded-md border border-slate-200 shrink-0 shadow-2xs"
+                  />
+
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-800 truncate">{m.title}</p>
+                    <p className="text-[11px] text-slate-400">{m.ticketsSold.toLocaleString("vi-VN")} vé</p>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <p className="font-black text-slate-900">{formatVND(m.revenue)}</p>
+                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                    {m.sharePercent}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
