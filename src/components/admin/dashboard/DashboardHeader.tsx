@@ -224,7 +224,10 @@ export default function DashboardHeader({
             }
             className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-semibold text-xs focus:outline-none focus:border-blue-500 focus:bg-white transition cursor-pointer"
           >
-            {CINEMA_OPTIONS.map((c) => (
+            {(dashboardData?.cinemas && dashboardData.cinemas.length > 0
+              ? dashboardData.cinemas
+              : CINEMA_OPTIONS
+            ).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
