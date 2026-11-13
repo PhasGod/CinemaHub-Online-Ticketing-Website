@@ -1,4 +1,5 @@
 import { apiFetch } from "./api"
+import { DashboardData } from "../types/dashboard"
 
 // ======== Users (US.04) ========
 export interface AdminUser {
@@ -84,6 +85,8 @@ export async function adminDeleteGenre(id: string): Promise<{ message: string }>
 }
 
 // ======== Movies (US.06) ========
+export type MovieStatus = "coming_soon" | "showing" | "ended" | "UPCOMING" | "NOW_SHOWING" | "ENDED"
+
 export interface Movie {
   id: string
   title: string
@@ -94,7 +97,7 @@ export interface Movie {
   format: string
   runtime: number
   rating: number
-  status: "coming_soon" | "showing" | "ended"
+  status: MovieStatus
   releaseDate: string | null
   createdAt: string
   updatedAt: string
@@ -106,12 +109,14 @@ export async function adminGetMovies(params?: {
   status?: string
   page?: number
   limit?: number
+  includeEnded?: boolean
 }): Promise<{ movies: Movie[]; pagination: Pagination }> {
   const qs = new URLSearchParams()
   if (params?.q) qs.set("q", params.q)
   if (params?.status) qs.set("status", params.status)
   if (params?.page) qs.set("page", String(params.page))
   if (params?.limit) qs.set("limit", String(params.limit))
+  if (params?.includeEnded) qs.set("includeEnded", "true")
   return apiFetch(`/movies?${qs}`)
 }
 
@@ -280,4 +285,18 @@ export interface AdminStats {
 
 export async function adminGetStats(): Promise<{ stats: AdminStats; revenueNote: string }> {
   return apiFetch("/stats")
+}
+
+export async function adminGetDashboardStats(params?: {
+  timeRange?: string
+  startDate?: string
+  endDate?: string
+  cinemaId?: string
+}): Promise<{ success: boolean; data: DashboardData }> {
+  const qs = new URLSearchParams()
+  if (params?.timeRange) qs.set("timeRange", params.timeRange)
+  if (params?.startDate) qs.set("startDate", params.startDate)
+  if (params?.endDate) qs.set("endDate", params.endDate)
+  if (params?.cinemaId) qs.set("cinemaId", params.cinemaId)
+  return apiFetch(`/admin/dashboard/stats?${qs.toString()}`)
 }

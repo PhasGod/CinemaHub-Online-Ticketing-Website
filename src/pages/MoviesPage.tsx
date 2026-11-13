@@ -103,7 +103,7 @@ export default function MoviesPage() {
                                             {movie.genres.map((g) => g.name).join(", ")}
                                         </p>
 
-                                        {status === "coming_soon" || movie.status === "coming_soon" ? (
+                                        {status === "coming_soon" || status === "UPCOMING" || movie.status === "coming_soon" || movie.status === "UPCOMING" ? (
                                             <Link
                                                 to={`/movies/${movie.id}`}
                                                 className="button button-primary card-button"

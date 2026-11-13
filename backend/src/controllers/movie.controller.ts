@@ -3,6 +3,43 @@ import { z } from "zod"
 import { prisma } from "../config/db.js"
 import { parsePagination } from "../utils/pagination.js"
 
+export type DynamicMovieStatus = "UPCOMING" | "NOW_SHOWING" | "ENDED"
+
+export const DURATION_5_WEEKS_MS = 35 * 24 * 60 * 60 * 1000
+
+export function getDynamicMovieStatus(
+  releaseDate: Date | string | null | undefined,
+  fallbackStatus?: string | null,
+  now: Date = new Date()
+): DynamicMovieStatus {
+  if (!releaseDate) {
+    const raw = String(fallbackStatus || "").toLowerCase()
+    if (raw === "coming_soon" || raw === "upcoming") return "UPCOMING"
+    if (raw === "ended") return "ENDED"
+    return "NOW_SHOWING"
+  }
+
+  const relDate = new Date(releaseDate)
+  if (Number.isNaN(relDate.getTime())) {
+    const raw = String(fallbackStatus || "").toLowerCase()
+    if (raw === "coming_soon" || raw === "upcoming") return "UPCOMING"
+    if (raw === "ended") return "ENDED"
+    return "NOW_SHOWING"
+  }
+
+  const nowMs = now.getTime()
+  const relMs = relDate.getTime()
+  const endMs = relMs + DURATION_5_WEEKS_MS
+
+  if (nowMs < relMs) {
+    return "UPCOMING"
+  }
+  if (nowMs <= endMs) {
+    return "NOW_SHOWING"
+  }
+  return "ENDED"
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -24,7 +61,7 @@ const movieSchema = z.object({
   format: z.string().default("2D"),
   runtime: z.number().int().positive("Thời lượng phim phải là số dương").default(120),
   rating: z.number().min(0).max(10).default(0.0),
-  status: z.enum(["coming_soon", "showing", "ended"]).default("showing"),
+  status: z.enum(["coming_soon", "showing", "ended", "UPCOMING", "NOW_SHOWING", "ENDED"]).default("showing"),
   releaseDate: z.string().refine((value) => {
     if (value === "") return true
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
@@ -64,7 +101,8 @@ const movieIncludes = {
   genres: { include: { genre: true } },
 }
 
-function formatMovie(m: any) {
+function formatMovie(m: any, now: Date = new Date()) {
+  const dynamicStatus = getDynamicMovieStatus(m.releaseDate, m.status, now)
   return {
     id: m.id,
     title: m.title,
@@ -75,7 +113,7 @@ function formatMovie(m: any) {
     format: m.format,
     runtime: m.runtime,
     rating: m.rating,
-    status: m.status,
+    status: dynamicStatus,
     releaseDate: m.releaseDate,
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
@@ -86,8 +124,9 @@ function formatMovie(m: any) {
 export async function getMovies(req: Request, res: Response) {
   try {
     const q = ((req.query.q || req.query.search) as string | undefined || "").trim()
-    const statusFilter = req.query.status as string | undefined
+    const statusFilter = ((req.query.status as string | undefined) || "").trim()
     const genreFilter = (req.query.genreId || req.query.genreSlug) as string | undefined
+    const includeEnded = req.query.includeEnded === "true" || req.query.includeEnded === "1"
     let pagination
 
     try {
@@ -99,15 +138,61 @@ export async function getMovies(req: Request, res: Response) {
     }
 
     const { page, limit, skip } = pagination
+    const now = new Date()
+    const thirtyFiveDaysAgo = new Date(now.getTime() - DURATION_5_WEEKS_MS)
 
-    const where: Record<string, unknown> = {}
-    if (q) where.OR = [{ title: { contains: q } }, { description: { contains: q } }]
-    if (statusFilter && ["coming_soon", "showing", "ended"].includes(statusFilter)) where.status = statusFilter
-    if (genreFilter) {
-      where.genres = {
-        some: { OR: [{ genreId: genreFilter }, { genre: { slug: genreFilter } }] },
-      }
+    const conditions: any[] = []
+
+    if (q) {
+      conditions.push({
+        OR: [{ title: { contains: q } }, { description: { contains: q } }],
+      })
     }
+
+    if (genreFilter) {
+      conditions.push({
+        genres: {
+          some: { OR: [{ genreId: genreFilter }, { genre: { slug: genreFilter } }] },
+        },
+      })
+    }
+
+    const isShowing = statusFilter === "showing" || statusFilter === "NOW_SHOWING"
+    const isUpcoming = statusFilter === "coming_soon" || statusFilter === "UPCOMING"
+    const isEnded = statusFilter === "ended" || statusFilter === "ENDED"
+
+    if (isShowing) {
+      conditions.push({
+        OR: [
+          { releaseDate: { gte: thirtyFiveDaysAgo, lte: now } },
+          { releaseDate: null, status: "showing" },
+        ],
+      })
+    } else if (isUpcoming) {
+      conditions.push({
+        OR: [
+          { releaseDate: { gt: now } },
+          { releaseDate: null, status: "coming_soon" },
+        ],
+      })
+    } else if (isEnded) {
+      conditions.push({
+        OR: [
+          { releaseDate: { lt: thirtyFiveDaysAgo } },
+          { releaseDate: null, status: "ended" },
+        ],
+      })
+    } else if (!includeEnded) {
+      // Phim quá 5 tuần (ENDED): Tự động ẩn khỏi luồng hiển thị công khai của khách hàng
+      conditions.push({
+        OR: [
+          { releaseDate: { gte: thirtyFiveDaysAgo } },
+          { releaseDate: null, status: { not: "ended" } },
+        ],
+      })
+    }
+
+    const where = conditions.length > 0 ? { AND: conditions } : {}
 
     const [total, movies] = await Promise.all([
       prisma.movie.count({ where }),
@@ -121,7 +206,7 @@ export async function getMovies(req: Request, res: Response) {
     ])
 
     return res.json({
-      movies: movies.map(formatMovie),
+      movies: movies.map((m) => formatMovie(m, now)),
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) || 1 },
     })
   } catch (error) {
@@ -166,13 +251,18 @@ export async function createMovie(req: Request, res: Response) {
       return res.status(400).json({ error: "Slug hoặc tên phim này đã tồn tại" })
     }
 
+    const dynamicStatus = getDynamicMovieStatus(releaseDate, status)
+    const dbStatus =
+      dynamicStatus === "UPCOMING" ? "coming_soon" : dynamicStatus === "ENDED" ? "ended" : "showing"
+
     const movie = await prisma.movie.create({
       data: {
         title, slug,
         description: description || null,
         poster: poster || null,
         trailerYoutubeId,
-        format, runtime, rating, status,
+        format, runtime, rating,
+        status: dbStatus,
         releaseDate: releaseDate ? new Date(releaseDate) : null,
         genres: { create: genreIds.map((genreId) => ({ genreId })) },
       },
@@ -210,6 +300,10 @@ export async function updateMovie(req: Request, res: Response) {
     const slugConflict = await prisma.movie.findFirst({ where: { id: { not: id }, slug } })
     if (slugConflict) return res.status(400).json({ error: "Slug này đã bị trùng với phim khác" })
 
+    const dynamicStatus = getDynamicMovieStatus(releaseDate, status)
+    const dbStatus =
+      dynamicStatus === "UPCOMING" ? "coming_soon" : dynamicStatus === "ENDED" ? "ended" : "showing"
+
     const updated = await prisma.$transaction(async (tx) => {
       await tx.movieGenre.deleteMany({ where: { movieId: id } })
       return tx.movie.update({
@@ -219,7 +313,8 @@ export async function updateMovie(req: Request, res: Response) {
           description: description || null,
           poster: poster || null,
           trailerYoutubeId,
-          format, runtime, rating, status,
+          format, runtime, rating,
+          status: dbStatus,
           releaseDate: releaseDate ? new Date(releaseDate) : null,
           genres: { create: genreIds.map((genreId) => ({ genreId })) },
         },

@@ -17,14 +17,14 @@ function formatDate(dateStr: string | null): string {
 }
 
 function getStatusLabel(status: Movie["status"]): string {
-  if (status === "showing") return "Đang chiếu"
-  if (status === "coming_soon") return "Sắp chiếu"
-  return "Đã ngừng chiếu"
+  if (status === "showing" || (status as string) === "NOW_SHOWING") return "Đang chiếu"
+  if (status === "coming_soon" || (status as string) === "UPCOMING") return "Sắp chiếu"
+  return "Đã ngừng chiếu (Quá 5 tuần)"
 }
 
 function getStatusColor(status: Movie["status"]): string {
-  if (status === "showing") return "#16a34a"
-  if (status === "coming_soon") return "#2563eb"
+  if (status === "showing" || (status as string) === "NOW_SHOWING") return "#16a34a"
+  if (status === "coming_soon" || (status as string) === "UPCOMING") return "#d97706"
   return "#6b7280"
 }
 
@@ -122,6 +122,7 @@ export default function MovieDetailPage() {
     movie.status === "coming_soon" ||
     (movie.status as string) === "UPCOMING" ||
     Boolean(movie.releaseDate && new Date(movie.releaseDate).getTime() > Date.now())
+  const isEnded = movie.status === "ended" || (movie.status as string) === "ENDED"
 
   const movieCardData: MovieCardData = {
     id: movie.id,
@@ -253,7 +254,18 @@ export default function MovieDetailPage() {
                   </button>
                 )}
 
-                {isUpcoming ? (
+                {isEnded ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-200 text-slate-500 px-5 py-2.5 text-sm font-bold opacity-75 cursor-not-allowed shadow-none select-none"
+                    aria-disabled="true"
+                    title="Phim đã ngừng chiếu"
+                  >
+                    <Ticket size={16} />
+                    ĐÃ NGỪNG CHIẾU
+                  </button>
+                ) : isUpcoming ? (
                   <button
                     type="button"
                     disabled
@@ -276,7 +288,12 @@ export default function MovieDetailPage() {
               </div>
 
               {/* Booking link / notice */}
-              {isUpcoming ? (
+              {isEnded ? (
+                <p className="mt-4 text-sm text-slate-500 flex items-center gap-1.5">
+                  <span className="inline-block w-2 h-2 rounded-full bg-slate-400" />
+                  Phim đã ngừng chiếu (đã quá 5 tuần từ ngày khởi chiếu).
+                </p>
+              ) : isUpcoming ? (
                 <p className="mt-4 text-sm text-slate-500 flex items-center gap-1.5">
                   <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
                   Phim sắp khởi chiếu. Hệ thống sẽ mở đặt vé trước ngày khởi chiếu, vui lòng quay lại sau!

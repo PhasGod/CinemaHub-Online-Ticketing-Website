@@ -39,7 +39,7 @@ function MovieCard({ movie }: { movie: Movie }) {
                     {movie.genres.map((genre) => genre.name).join(", ")}
                 </p>
 
-                {movie.status === "coming_soon" && (
+                {(movie.status === "coming_soon" || movie.status === "UPCOMING") && (
                     <p className="mb-3 text-sm text-blue-600">
                         Khởi chiếu: {
                             movie.releaseDate
@@ -49,7 +49,7 @@ function MovieCard({ movie }: { movie: Movie }) {
                     </p>
                 )}
 
-                {movie.status === "coming_soon" ? (
+                {movie.status === "coming_soon" || movie.status === "UPCOMING" ? (
                     <Link
                         to={`/movies/${movie.id}`}
                         className="button button-primary card-button"
@@ -151,7 +151,7 @@ export default function HomePage() {
                         <div className="hero-content">
                             <div className="hero-copy">
                                 <span className="hero-label">
-                                    {featured.status === "showing"
+                                    {featured.status === "showing" || (featured.status as string) === "NOW_SHOWING"
                                         ? "Phim đang chiếu"
                                         : "Phim sắp chiếu"}
                                 </span>
