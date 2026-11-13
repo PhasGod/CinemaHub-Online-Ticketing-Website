@@ -767,10 +767,9 @@ export default function CheckoutPage() {
                   </span>
                   <Link
                     to="/promotions"
-                    target="_blank"
-                    className="text-[11px] font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                    className="text-[11px] font-bold text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 transition-colors"
                   >
-                    Xem ưu đãi hiện có <ExternalLink size={11} />
+                    Xem ưu đãi hiện có
                   </Link>
                 </div>
 
@@ -802,24 +801,54 @@ export default function CheckoutPage() {
                   </div>
                 ) : (
                   /* Form to enter voucher */
-                  <form onSubmit={handleApplyVoucher} className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Tag size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        value={voucherCodeInput}
-                        onChange={(e) => setVoucherCodeInput(e.target.value.toUpperCase())}
-                        placeholder="Nhập mã (ví dụ: CINEMA50K, FNB20...)"
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white text-xs sm:text-sm font-mono uppercase text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition"
-                      />
+                  <>
+                    <form onSubmit={handleApplyVoucher} className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Tag size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={voucherCodeInput}
+                          onChange={(e) => setVoucherCodeInput(e.target.value.toUpperCase())}
+                          placeholder="Nhập mã (ví dụ: CINEMA50K, FNB20...)"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white text-xs sm:text-sm font-mono uppercase text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-sm transition shrink-0 cursor-pointer"
+                      >
+                        Áp dụng
+                      </button>
+                    </form>
+
+                    {/* Gợi ý mã ưu đãi hot áp dụng nhanh */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
+                      <span className="text-gray-400 text-[11px] font-medium">Gợi ý mã:</span>
+                      {[
+                        { code: "CINEMA50K", label: "CINEMA50K (-40k)" },
+                        { code: "FNB20", label: "FNB20 (-20k)" },
+                        { code: "STUDENTVOUCHER", label: "HSSV (-25%)" },
+                      ].map((item) => (
+                        <button
+                          key={item.code}
+                          type="button"
+                          onClick={() => {
+                            setVoucherCodeInput(item.code)
+                            const res = verifyVoucher(item.code, rawTotalAmount)
+                            if (res.valid) {
+                              setAppliedVoucher(res)
+                              setVoucherMessage({ type: "success", text: res.message })
+                            } else {
+                              setVoucherMessage({ type: "error", text: res.message })
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 font-mono font-bold text-[11px] transition cursor-pointer"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
                     </div>
-                    <button
-                      type="submit"
-                      className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-sm transition shrink-0"
-                    >
-                      Áp dụng
-                    </button>
-                  </form>
+                  </>
                 )}
 
                 {/* Voucher status message */}
