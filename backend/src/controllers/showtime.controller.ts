@@ -451,6 +451,12 @@ export async function cancelShowtime(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: "Không tìm thấy suất chiếu" })
     }
 
+    if (new Date(showtime.endTime).getTime() < Date.now()) {
+      return res.status(400).json({
+        error: "Suất chiếu đã kết thúc, không thể hủy",
+      })
+    }
+
     // Kiểm tra xem đã có vé nào được đặt chưa
     const bookedSeatsCount = await prisma.showtimeSeat.count({
       where: {
@@ -508,6 +514,13 @@ export async function batchCancelShowtimes(req: AuthRequest, res: Response) {
       }
 
       if (showtime.status === "CANCELLED") {
+        continue
+      }
+
+      if (new Date(showtime.endTime).getTime() < Date.now()) {
+        errors.push(
+          `Suất chiếu "${showtime.movie.title}" đã kết thúc, không thể hủy`,
+        )
         continue
       }
 
