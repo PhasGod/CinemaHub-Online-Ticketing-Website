@@ -12,6 +12,9 @@ import {
   Building2,
   Armchair,
   AlertTriangle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react"
 import {
   getShowtimes,
@@ -690,18 +693,59 @@ function CreateShowtimeModal({
   )
 }
 
+export type ShowtimeSortOption =
+  | "time-asc"
+  | "time-desc"
+  | "price-asc"
+  | "price-desc"
+  | "status"
+
+export type DynamicShowtimeStatus = "PLAYING" | "UPCOMING" | "ENDED"
+
+export function getDynamicShowtimeStatus(
+  st: ShowtimeItem,
+  now: Date
+): {
+  status: DynamicShowtimeStatus
+  isEnded: boolean
+  isPlaying: boolean
+  isUpcoming: boolean
+} {
+  const start = new Date(st.startTime).getTime()
+  const end = new Date(st.endTime).getTime()
+  const nowMs = now.getTime()
+
+  if (nowMs > end) {
+    return { status: "ENDED", isEnded: true, isPlaying: false, isUpcoming: false }
+  }
+  if (nowMs >= start && nowMs <= end) {
+    return { status: "PLAYING", isEnded: false, isPlaying: true, isUpcoming: false }
+  }
+  return { status: "UPCOMING", isEnded: false, isPlaying: false, isUpcoming: true }
+}
+
 export default function AdminShowtimesPage() {
   const [showtimes, setShowtimes] = useState<ShowtimeItem[]>([])
   const [movies, setMovies] = useState<MovieOption[]>([])
   const [cinemas, setCinemas] = useState<Cinema[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [filterCinemaId, setFilterCinemaId] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<ShowtimeSortOption>("time-asc")
+  const [currentTime, setCurrentTime] = useState<Date>(() => new Date())
   const [isLoading, setIsLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState<{
     msg: string
     type: "success" | "error"
   } | null>(null)
+
+  // Cập nhật mốc thời gian thực mỗi 30 giây để tự động phản ánh trạng thái suất chiếu
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Quản lý Trạng thái Thao tác Hàng loạt (Bulk Action)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -770,26 +814,71 @@ export default function AdminShowtimesPage() {
     return showtimes.filter((st) => st.cinemaId === filterCinemaId)
   }, [showtimes, filterCinemaId])
 
-  // Danh sách các suất chiếu đang hoạt động trong bộ lọc hiện tại (có thể hủy)
-  const activeFilteredShowtimes = useMemo(() => {
-    return filteredShowtimes.filter((st) => st.status !== "CANCELLED")
-  }, [filteredShowtimes])
+  // Danh sách suất chiếu sau khi áp dụng bộ lọc Cụm rạp & Tiêu chí Sắp xếp (Sort)
+  const sortedShowtimes = useMemo(() => {
+    const list = [...filteredShowtimes]
 
-  // Trạng thái đã chọn tất cả chưa
+    const getStatusPriority = (st: ShowtimeItem): number => {
+      if (st.status === "CANCELLED") return 4
+      const { status } = getDynamicShowtimeStatus(st, currentTime)
+      if (status === "PLAYING") return 1
+      if (status === "UPCOMING") return 2
+      return 3 // ENDED
+    }
+
+    list.sort((a, b) => {
+      if (sortBy === "time-asc") {
+        return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      }
+      if (sortBy === "time-desc") {
+        return new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+      }
+      if (sortBy === "price-asc") {
+        const diff = a.price - b.price
+        if (diff !== 0) return diff
+        return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      }
+      if (sortBy === "price-desc") {
+        const diff = b.price - a.price
+        if (diff !== 0) return diff
+        return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      }
+      if (sortBy === "status") {
+        const prioA = getStatusPriority(a)
+        const prioB = getStatusPriority(b)
+        if (prioA !== prioB) return prioA - prioB
+        return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      }
+      return 0
+    })
+
+    return list
+  }, [filteredShowtimes, sortBy, currentTime])
+
+  // Danh sách các suất chiếu có thể hủy trong danh sách hiển thị hiện tại (chưa Hủy và chưa Kết thúc)
+  const cancellableFilteredShowtimes = useMemo(() => {
+    return sortedShowtimes.filter((st) => {
+      if (st.status === "CANCELLED") return false
+      const { isEnded } = getDynamicShowtimeStatus(st, currentTime)
+      return !isEnded
+    })
+  }, [sortedShowtimes, currentTime])
+
+  // Trạng thái đã chọn tất cả các suất có thể hủy chưa
   const isAllSelected =
-    activeFilteredShowtimes.length > 0 &&
-    activeFilteredShowtimes.every((st) => selectedIds.has(st.id))
+    cancellableFilteredShowtimes.length > 0 &&
+    cancellableFilteredShowtimes.every((st) => selectedIds.has(st.id))
 
   const isIndeterminate =
-    activeFilteredShowtimes.some((st) => selectedIds.has(st.id)) && !isAllSelected
+    cancellableFilteredShowtimes.some((st) => selectedIds.has(st.id)) && !isAllSelected
 
-  // Xử lý Chọn tất cả / Bỏ chọn tất cả
+  // Xử lý Chọn tất cả / Bỏ chọn tất cả các suất có thể hủy
   const handleToggleSelectAll = () => {
     const next = new Set(selectedIds)
     if (isAllSelected) {
-      activeFilteredShowtimes.forEach((st) => next.delete(st.id))
+      cancellableFilteredShowtimes.forEach((st) => next.delete(st.id))
     } else {
-      activeFilteredShowtimes.forEach((st) => next.add(st.id))
+      cancellableFilteredShowtimes.forEach((st) => next.add(st.id))
     }
     setSelectedIds(next)
   }
@@ -958,26 +1047,46 @@ export default function AdminShowtimesPage() {
 
       {/* Filter & Batch Action Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <Building2 size={18} className="text-blue-600 shrink-0" />
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-            Cụm rạp:
-          </span>
-          <select
-            value={filterCinemaId}
-            onChange={(e) => {
-              setFilterCinemaId(e.target.value)
-              setSelectedIds(new Set())
-            }}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-semibold bg-slate-50 hover:bg-slate-100 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer text-slate-800"
-          >
-            <option value="all">Tất cả cụm rạp ({showtimes.length} suất)</option>
-            {cinemas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} {c.location ? `(${c.location})` : ""}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2.5">
+            <Building2 size={18} className="text-blue-600 shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Cụm rạp:
+            </span>
+            <select
+              value={filterCinemaId}
+              onChange={(e) => {
+                setFilterCinemaId(e.target.value)
+                setSelectedIds(new Set())
+              }}
+              className="px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-semibold bg-slate-50 hover:bg-slate-100 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer text-slate-800"
+            >
+              <option value="all">Tất cả cụm rạp ({showtimes.length} suất)</option>
+              {cinemas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.location ? `(${c.location})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <ArrowUpDown size={18} className="text-blue-600 shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              Sắp xếp:
+            </span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as ShowtimeSortOption)}
+              className="px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-semibold bg-slate-50 hover:bg-slate-100 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer text-slate-800"
+            >
+              <option value="time-asc">Thời gian: Gần nhất → Xa nhất (Mặc định)</option>
+              <option value="time-desc">Thời gian: Xa nhất → Gần nhất</option>
+              <option value="price-asc">Giá vé: Thấp đến cao</option>
+              <option value="price-desc">Giá vé: Cao đến thấp</option>
+              <option value="status">Trạng thái: Đang chiếu → Sắp chiếu → Kết thúc</option>
+            </select>
+          </div>
         </div>
 
         {/* Nút Hủy các mục đã chọn (Bulk Action Button) */}
@@ -1005,7 +1114,7 @@ export default function AdminShowtimesPage() {
             </div>
           ) : (
             <div className="text-xs text-slate-500 font-medium">
-              Đang hiển thị <b>{filteredShowtimes.length}</b> / <b>{showtimes.length}</b> suất chiếu
+              Đang hiển thị <b>{sortedShowtimes.length}</b> / <b>{showtimes.length}</b> suất chiếu
             </div>
           )}
         </div>
@@ -1018,7 +1127,7 @@ export default function AdminShowtimesPage() {
             <Loader2 size={32} className="animate-spin text-blue-600" />
             <p className="text-sm">Đang tải dữ liệu suất chiếu...</p>
           </div>
-        ) : filteredShowtimes.length === 0 ? (
+        ) : sortedShowtimes.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
             <CalendarDays size={40} className="mx-auto mb-3 text-slate-300" />
             <p className="font-semibold">
@@ -1043,25 +1152,84 @@ export default function AdminShowtimesPage() {
                       ref={(el) => {
                         if (el) el.indeterminate = isIndeterminate
                       }}
+                      disabled={cancellableFilteredShowtimes.length === 0}
                       onChange={handleToggleSelectAll}
-                      className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer accent-rose-600"
-                      title={isAllSelected ? "Bỏ chọn tất cả" : "Chọn tất cả các suất chiếu đang hiển thị"}
+                      className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer accent-rose-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={
+                        cancellableFilteredShowtimes.length === 0
+                          ? "Không có suất chiếu nào có thể hủy"
+                          : isAllSelected
+                          ? "Bỏ chọn tất cả"
+                          : "Chọn tất cả các suất chiếu có thể hủy"
+                      }
                     />
                   </th>
                   <th className="px-6 py-4">Phim</th>
                   <th className="px-6 py-4">Rạp & Phòng</th>
-                  <th className="px-6 py-4">Thời gian chiếu</th>
-                  <th className="px-6 py-4">Giá vé</th>
+                  <th className="px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSortBy(sortBy === "time-asc" ? "time-desc" : "time-asc")
+                      }
+                      className="inline-flex items-center gap-1.5 uppercase font-bold hover:text-slate-800 transition cursor-pointer group"
+                      title="Sắp xếp theo thời gian chiếu (Gần nhất / Xa nhất)"
+                    >
+                      <span>Thời gian chiếu</span>
+                      {sortBy === "time-asc" ? (
+                        <ArrowUp size={14} className="text-blue-600 shrink-0" />
+                      ) : sortBy === "time-desc" ? (
+                        <ArrowDown size={14} className="text-blue-600 shrink-0" />
+                      ) : (
+                        <ArrowUpDown size={14} className="text-slate-400 group-hover:text-slate-600 shrink-0 transition" />
+                      )}
+                    </button>
+                  </th>
+                  <th className="px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSortBy(sortBy === "price-asc" ? "price-desc" : "price-asc")
+                      }
+                      className="inline-flex items-center gap-1.5 uppercase font-bold hover:text-slate-800 transition cursor-pointer group"
+                      title="Sắp xếp theo giá vé (Thấp đến cao / Cao đến thấp)"
+                    >
+                      <span>Giá vé</span>
+                      {sortBy === "price-asc" ? (
+                        <ArrowUp size={14} className="text-blue-600 shrink-0" />
+                      ) : sortBy === "price-desc" ? (
+                        <ArrowDown size={14} className="text-blue-600 shrink-0" />
+                      ) : (
+                        <ArrowUpDown size={14} className="text-slate-400 group-hover:text-slate-600 shrink-0 transition" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-6 py-4">Ghế trống</th>
-                  <th className="px-6 py-4">Trạng thái</th>
+                  <th className="px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() => setSortBy("status")}
+                      className="inline-flex items-center gap-1.5 uppercase font-bold hover:text-slate-800 transition cursor-pointer group"
+                      title="Sắp xếp theo trạng thái (Đang chiếu → Sắp chiếu → Kết thúc)"
+                    >
+                      <span>Trạng thái</span>
+                      {sortBy === "status" ? (
+                        <ArrowDown size={14} className="text-blue-600 shrink-0" />
+                      ) : (
+                        <ArrowUpDown size={14} className="text-slate-400 group-hover:text-slate-600 shrink-0 transition" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-6 py-4 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredShowtimes.map((st) => {
+                {sortedShowtimes.map((st) => {
                   const s = new Date(st.startTime)
                   const e = new Date(st.endTime)
                   const isCancelled = st.status === "CANCELLED"
+                  const { status: dynamicStatus, isEnded, isPlaying, isUpcoming } =
+                    getDynamicShowtimeStatus(st, currentTime)
                   const isSelected = selectedIds.has(st.id)
 
                   return (
@@ -1078,10 +1246,16 @@ export default function AdminShowtimesPage() {
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          disabled={isCancelled}
+                          disabled={isCancelled || isEnded}
                           onChange={() => handleToggleSelectOne(st.id)}
                           className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer accent-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={isCancelled ? "Suất chiếu này đã hủy" : `Chọn suất chiếu ${st.movieTitle}`}
+                          title={
+                            isCancelled
+                              ? "Suất chiếu này đã hủy"
+                              : isEnded
+                              ? "Suất chiếu đã kết thúc, không thể chọn để hủy"
+                              : `Chọn suất chiếu ${st.movieTitle}`
+                          }
                         />
                       </td>
 
@@ -1147,23 +1321,49 @@ export default function AdminShowtimesPage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
-                            isCancelled
-                              ? "bg-rose-100 text-rose-700"
-                              : "bg-emerald-100 text-emerald-700"
-                          }`}
-                        >
-                          {isCancelled ? "Đã hủy" : "Hoạt động"}
-                        </span>
+                        {isCancelled ? (
+                          <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
+                            Đã hủy
+                          </span>
+                        ) : isPlaying ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/60 shadow-2xs">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            Đang chiếu
+                          </span>
+                        ) : isUpcoming ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-700 border border-sky-200/60">
+                            Sắp chiếu
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200/60">
+                            Kết thúc
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-6 py-4 text-right">
-                        {!isCancelled && (
+                        {isCancelled ? (
+                          <span className="text-xs font-semibold text-slate-400 italic">
+                            Đã hủy
+                          </span>
+                        ) : isEnded ? (
                           <button
+                            type="button"
+                            disabled
+                            title="Suất chiếu đã kết thúc, không thể hủy để bảo toàn lịch sử dữ liệu"
+                            className="p-2 text-slate-300 cursor-not-allowed rounded-xl inline-flex items-center gap-1 text-xs font-bold select-none"
+                          >
+                            <Trash2 size={16} /> Hủy
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
                             onClick={() => handleCancelShowtime(st)}
                             title="Hủy suất chiếu"
-                            className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition inline-flex items-center gap-1 text-xs font-bold"
+                            className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition inline-flex items-center gap-1 text-xs font-bold cursor-pointer"
                           >
                             <Trash2 size={16} /> Hủy
                           </button>

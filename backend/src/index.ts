@@ -62,7 +62,6 @@ app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", message: "CinemaHub Backend Server is running" })
 })
 
-<<<<<<< Updated upstream
 // Routes
 app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
@@ -78,7 +77,6 @@ app.use("/api/staff/tickets", ticketRoutes)
 app.use("/api/stats", statsRoutes)
 app.use("/api/promotions", promotionRoutes)
 app.use("/api/admin/promotions", adminPromotionRoutes)
-=======
 // 5. Routes (đăng ký cả prefix /api và root để tương thích với mọi cấu hình URL frontend)
 const registerRoutes = (prefix: string) => {
   app.use(`${prefix}/auth`, authRoutes)
@@ -100,7 +98,6 @@ const registerRoutes = (prefix: string) => {
 
 registerRoutes("/api")
 registerRoutes("")
->>>>>>> Stashed changes
 
 // Centralized 404 handler
 app.use((req: Request, res: Response) => {
