@@ -39,7 +39,7 @@ export async function adminCreateStaff(data: {
   password: string
   fullName: string
   phone?: string
-  role: "staff" | "admin"
+  role: "customer" | "staff" | "admin"
 }): Promise<{ message: string; user: AdminUser }> {
   return apiFetch("/users", { method: "POST", body: JSON.stringify(data) })
 }

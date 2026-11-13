@@ -10,7 +10,7 @@ const createStaffSchema = z.object({
   password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
   fullName: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
   phone: z.string().optional().nullable(),
-  role: z.enum(["staff", "admin"]).default("staff"),
+  role: z.enum(["customer", "staff", "admin"]).default("staff"),
 })
 
 const updateUserSchema = z.object({

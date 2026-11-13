@@ -45,8 +45,8 @@ function UserModal({
   const [fullName, setFullName] = useState(editUser?.fullName || "")
   const [email, setEmail] = useState(editUser?.email || "")
   const [phone, setPhone] = useState(editUser?.phone || "")
-  const [role, setRole] = useState<"staff" | "admin">(
-    editUser?.role === "admin" ? "admin" : "staff"
+  const [role, setRole] = useState<"customer" | "staff" | "admin">(
+    editUser?.role || "staff"
   )
   const [password, setPassword] = useState("")
   const [showPw, setShowPw] = useState(false)
@@ -124,8 +124,9 @@ function UserModal({
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Vai trò</label>
-              <select value={role} onChange={(e) => setRole(e.target.value as "staff" | "admin")}
+              <select value={role} onChange={(e) => setRole(e.target.value as "customer" | "staff" | "admin")}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                <option value="customer">Khách hàng</option>
                 <option value="staff">Nhân viên rạp</option>
                 <option value="admin">Quản trị viên</option>
               </select>
