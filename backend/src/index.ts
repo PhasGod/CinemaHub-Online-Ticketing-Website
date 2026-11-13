@@ -137,7 +137,7 @@ const registerRoutes = (prefix: string) => {
 
 registerRoutes("/api")
 registerRoutes("")
-dev
+
 
 // Centralized 404 handler
 app.use((req: Request, res: Response) => {
