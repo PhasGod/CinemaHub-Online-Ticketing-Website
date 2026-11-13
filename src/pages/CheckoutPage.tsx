@@ -26,7 +26,10 @@ import {
   verifyVoucher,
   clearSelectedVoucher,
 } from "../services/promotion.service"
-import { VoucherApplyResult } from "../types/promotion"
+import { VoucherApplyResult, Promotion } from "../types/promotion"
+import { promotionsMockData } from "../data/promotionsMockData"
+import { VoucherSelectionModal } from "../components/VoucherSelectionModal"
+import { useToast } from "../components/Toast"
 import {
   payBooking,
   getBookingById,
@@ -87,6 +90,8 @@ export default function CheckoutPage() {
   const [momoStatusMessage, setMomoStatusMessage] = useState<string>("")
 
   // Voucher / Promotion state - Tự động đồng bộ từ Bước 4.2 nếu có
+  const { showToast } = useToast()
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false)
   const [voucherCodeInput, setVoucherCodeInput] = useState(
     stateData?.appliedVoucher?.promotion?.code || ""
   )
@@ -356,11 +361,23 @@ export default function CheckoutPage() {
     }
   }, [rawTotalAmount])
 
-  const handleApplyVoucher = (e?: React.FormEvent) => {
+  const handleApplyVoucher = (e?: React.FormEvent, directCode?: string) => {
     if (e) e.preventDefault()
-    const target = voucherCodeInput.trim()
+    const target = (directCode || voucherCodeInput).trim().toUpperCase()
     if (!target) {
       setVoucherMessage({ type: "error", text: "Vui lòng nhập mã ưu đãi" })
+      return
+    }
+
+    setVoucherCodeInput(target)
+
+    // Kiểm tra trường hợp mã F&B bắp nước nhưng đơn chưa chọn bắp nước
+    const promo = promotionsMockData.find((p) => p.code.toUpperCase() === target)
+    if (promo?.category === "FNB" && comboTotal <= 0) {
+      setAppliedVoucher(null)
+      const errorMsg = `Mã "${target}" chỉ áp dụng cho đơn có combo bắp nước. Đơn hiện tại chưa có bắp nước.`
+      setVoucherMessage({ type: "error", text: errorMsg })
+      showToast(errorMsg, "error", "Chưa đủ điều kiện")
       return
     }
 
@@ -368,10 +385,21 @@ export default function CheckoutPage() {
     if (res.valid) {
       setAppliedVoucher(res)
       setVoucherMessage({ type: "success", text: res.message })
+      showToast(
+        `Áp dụng thành công mã "${target}"! Tiết kiệm ${res.discountAmount.toLocaleString("vi-VN")}đ`,
+        "success",
+        "Áp dụng voucher"
+      )
     } else {
       setAppliedVoucher(null)
       setVoucherMessage({ type: "error", text: res.message })
+      showToast(res.message, "error", "Không thể áp dụng")
     }
+  }
+
+  const handleApplyVoucherFromModal = (promo: Promotion) => {
+    setIsVoucherModalOpen(false)
+    handleApplyVoucher(undefined, promo.code)
   }
 
   const handleRemoveVoucher = () => {
@@ -765,12 +793,14 @@ export default function CheckoutPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-teal-800 flex items-center gap-1.5">
                     <TicketIcon size={15} className="text-teal-600" /> Mã khuyến mãi / Voucher
                   </span>
-                  <Link
-                    to="/promotions"
-                    className="text-[11px] font-bold text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => setIsVoucherModalOpen(true)}
+                    className="text-[11px] font-bold text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 transition-colors cursor-pointer group"
                   >
+                    <Sparkles size={12} className="text-teal-500 group-hover:rotate-12 transition-transform" />
                     Xem ưu đãi hiện có
-                  </Link>
+                  </button>
                 </div>
 
                 {/* If voucher is already applied */}
@@ -832,16 +862,7 @@ export default function CheckoutPage() {
                         <button
                           key={item.code}
                           type="button"
-                          onClick={() => {
-                            setVoucherCodeInput(item.code)
-                            const res = verifyVoucher(item.code, rawTotalAmount)
-                            if (res.valid) {
-                              setAppliedVoucher(res)
-                              setVoucherMessage({ type: "success", text: res.message })
-                            } else {
-                              setVoucherMessage({ type: "error", text: res.message })
-                            }
-                          }}
+                          onClick={() => handleApplyVoucher(undefined, item.code)}
                           className="px-2 py-0.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 font-mono font-bold text-[11px] transition cursor-pointer"
                         >
                           {item.label}
@@ -1074,6 +1095,17 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* POPUP MODAL CHỌN VOUCHER / ƯU ĐÃI HIỆN CÓ */}
+      <VoucherSelectionModal
+        isOpen={isVoucherModalOpen}
+        onClose={() => setIsVoucherModalOpen(false)}
+        onApplyVoucher={handleApplyVoucherFromModal}
+        currentVoucherCode={appliedVoucher?.promotion?.code}
+        orderAmount={rawTotalAmount}
+        comboTotal={comboTotal}
+        ticketTotal={ticketTotal}
+      />
     </main>
   )
 }
