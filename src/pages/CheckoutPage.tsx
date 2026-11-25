@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom"
 import QRCode from "qrcode"
 import {
@@ -43,6 +43,104 @@ import {
   ShowtimeSeatItem,
 } from "../types/booking"
 
+// Component con hiển thị Banner Countdown - tự quản lý state giây để không làm re-render CheckoutPage
+const CheckoutCountdownBanner = React.memo<{
+  initialSeconds: number
+  onExpire: () => void
+}>(({ initialSeconds, onExpire }) => {
+  const [timeLeft, setTimeLeft] = useState(initialSeconds)
+  const onExpireRef = React.useRef(onExpire)
+
+  useEffect(() => {
+    onExpireRef.current = onExpire
+  })
+
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      onExpireRef.current?.()
+      return
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          onExpireRef.current?.()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [initialSeconds])
+
+  const mins = Math.floor(timeLeft / 60)
+  const secs = timeLeft % 60
+  const formatted = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+  const isUrgent = timeLeft < 60
+
+  return (
+    <div
+      className={`mb-8 p-4 rounded-2xl border flex items-center justify-between transition-colors ${
+        isUrgent
+          ? "bg-rose-50 border-rose-200 text-rose-700 animate-pulse"
+          : "bg-white border-gray-200 text-gray-700 shadow-sm"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            isUrgent ? "bg-rose-100 text-rose-600" : "bg-rose-50 text-rose-600"
+          }`}
+        >
+          <Clock size={20} />
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">
+            Thời gian giữ chỗ còn lại
+          </p>
+          <p className="text-xl font-black font-mono text-rose-600">
+            {formatted}
+          </p>
+        </div>
+      </div>
+      <span className="text-xs text-gray-500 hidden sm:inline">
+        Vui lòng hoàn tất thanh toán trước khi hết giờ
+      </span>
+    </div>
+  )
+})
+CheckoutCountdownBanner.displayName = "CheckoutCountdownBanner"
+
+// Component con hiển thị thời gian trong MoMo Sandbox modal
+const CheckoutCountdownText = React.memo<{
+  initialSeconds: number
+}>(({ initialSeconds }) => {
+  const [timeLeft, setTimeLeft] = useState(initialSeconds)
+
+  useEffect(() => {
+    if (timeLeft <= 0) return
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [initialSeconds])
+
+  const mins = Math.floor(timeLeft / 60)
+  const secs = timeLeft % 60
+  return <>{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</>
+})
+CheckoutCountdownText.displayName = "CheckoutCountdownText"
+
 export default function CheckoutPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
   const navigate = useNavigate()
@@ -70,10 +168,13 @@ export default function CheckoutPage() {
   const [error, setError] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<"MOCK" | "MOMO">("MOCK")
 
-  // Countdown timer 5 minutes (300 seconds)
+  // Countdown timer 5 minutes (300 seconds) - cách ly state timer khỏi CheckoutPage để tránh re-render liên tục
   const initialSeconds = stateData?.holdResult?.expiresInSeconds || 300
-  const [timeLeft, setTimeLeft] = useState<number>(initialSeconds)
   const [isExpired, setIsExpired] = useState(false)
+
+  const handleExpire = useCallback(() => {
+    setIsExpired(true)
+  }, [])
 
   // MoMo Sandbox Modal & Polling state
   const [momoModalData, setMomoModalData] = useState<{
@@ -135,27 +236,6 @@ export default function CheckoutPage() {
     }
   }, [bookingId])
 
-  // Countdown effect
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      setIsExpired(true)
-      return
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          setIsExpired(true)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [timeLeft])
-
   // MoMo Status Polling Effect
   useEffect(() => {
     if (!momoModalData || momoStatus === "SUCCESS" || momoStatus === "FAILED" || isExpired || !bookingId) {
@@ -195,12 +275,6 @@ export default function CheckoutPage() {
 
     return () => clearInterval(interval)
   }, [momoModalData, momoStatus, isExpired, bookingId, navigate, stateData])
-
-  const formatCountdown = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
-  }
 
   const formatPrice = (val: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -361,53 +435,67 @@ export default function CheckoutPage() {
     }
   }, [rawTotalAmount])
 
-  const handleApplyVoucher = (e?: React.FormEvent, directCode?: string) => {
-    if (e) e.preventDefault()
-    const target = (directCode || voucherCodeInput).trim().toUpperCase()
-    if (!target) {
-      setVoucherMessage({ type: "error", text: "Vui lòng nhập mã ưu đãi" })
-      return
-    }
+  const handleApplyVoucher = useCallback(
+    (e?: React.FormEvent, directCode?: string) => {
+      if (e) e.preventDefault()
+      const target = (directCode || voucherCodeInput).trim().toUpperCase()
+      if (!target) {
+        setVoucherMessage({ type: "error", text: "Vui lòng nhập mã ưu đãi" })
+        return
+      }
 
-    setVoucherCodeInput(target)
+      setVoucherCodeInput(target)
 
-    // Kiểm tra trường hợp mã F&B bắp nước nhưng đơn chưa chọn bắp nước
-    const promo = promotionsMockData.find((p) => p.code.toUpperCase() === target)
-    if (promo?.category === "FNB" && comboTotal <= 0) {
-      setAppliedVoucher(null)
-      const errorMsg = `Mã "${target}" chỉ áp dụng cho đơn có combo bắp nước. Đơn hiện tại chưa có bắp nước.`
-      setVoucherMessage({ type: "error", text: errorMsg })
-      showToast(errorMsg, "error", "Chưa đủ điều kiện")
-      return
-    }
+      // Kiểm tra trường hợp mã F&B bắp nước nhưng đơn chưa chọn bắp nước
+      const promo = promotionsMockData.find((p) => p.code.toUpperCase() === target)
+      if (promo?.category === "FNB" && comboTotal <= 0) {
+        setAppliedVoucher(null)
+        const errorMsg = `Mã "${target}" chỉ áp dụng cho đơn có combo bắp nước. Đơn hiện tại chưa có bắp nước.`
+        setVoucherMessage({ type: "error", text: errorMsg })
+        showToast(errorMsg, "error", "Chưa đủ điều kiện")
+        return
+      }
 
-    const res = verifyVoucher(target, rawTotalAmount)
-    if (res.valid) {
-      setAppliedVoucher(res)
-      setVoucherMessage({ type: "success", text: res.message })
-      showToast(
-        `Áp dụng thành công mã "${target}"! Tiết kiệm ${res.discountAmount.toLocaleString("vi-VN")}đ`,
-        "success",
-        "Áp dụng voucher"
-      )
-    } else {
-      setAppliedVoucher(null)
-      setVoucherMessage({ type: "error", text: res.message })
-      showToast(res.message, "error", "Không thể áp dụng")
-    }
-  }
+      const res = verifyVoucher(target, rawTotalAmount)
+      if (res.valid) {
+        setAppliedVoucher(res)
+        setVoucherMessage({ type: "success", text: res.message })
+        showToast(
+          `Áp dụng thành công mã "${target}"! Tiết kiệm ${res.discountAmount.toLocaleString("vi-VN")}đ`,
+          "success",
+          "Áp dụng voucher"
+        )
+      } else {
+        setAppliedVoucher(null)
+        setVoucherMessage({ type: "error", text: res.message })
+        showToast(res.message, "error", "Không thể áp dụng")
+      }
+    },
+    [voucherCodeInput, comboTotal, rawTotalAmount, showToast]
+  )
 
-  const handleApplyVoucherFromModal = (promo: Promotion) => {
+  const handleOpenVoucherModal = useCallback(() => {
+    setIsVoucherModalOpen(true)
+  }, [])
+
+  const handleCloseVoucherModal = useCallback(() => {
     setIsVoucherModalOpen(false)
-    handleApplyVoucher(undefined, promo.code)
-  }
+  }, [])
 
-  const handleRemoveVoucher = () => {
+  const handleApplyVoucherFromModal = useCallback(
+    (promo: Promotion) => {
+      setIsVoucherModalOpen(false)
+      handleApplyVoucher(undefined, promo.code)
+    },
+    [handleApplyVoucher]
+  )
+
+  const handleRemoveVoucher = useCallback(() => {
     setAppliedVoucher(null)
     setVoucherCodeInput("")
     setVoucherMessage(null)
     clearSelectedVoucher()
-  }
+  }, [])
 
   // VietQR Dynamic URL (Cách 1) & Fallback QRServer (Cách 2)
   const vietQrUrl = `https://img.vietqr.io/image/MB-0967630387-compact2.png?amount=${amount}&addInfo=${description}&accountName=CINEMAHUB`
@@ -530,7 +618,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">Thời gian giữ vé:</span>
                 <span className="font-mono font-bold text-amber-600">
-                  {formatCountdown(timeLeft)}
+                  <CheckoutCountdownText initialSeconds={initialSeconds} />
                 </span>
               </div>
             </div>
@@ -638,33 +726,11 @@ export default function CheckoutPage() {
           </p>
         </div>
 
-        {/* Countdown Banner */}
-        <div
-          className={`mb-8 p-4 rounded-2xl border flex items-center justify-between ${
-            timeLeft < 60
-              ? "bg-rose-50 border-rose-200 text-rose-700 animate-pulse"
-              : "bg-white border-gray-200 text-gray-700 shadow-sm"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-              timeLeft < 60 ? "bg-rose-100 text-rose-600" : "bg-rose-50 text-rose-600"
-            }`}>
-              <Clock size={20} />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">
-                Thời gian giữ chỗ còn lại
-              </p>
-              <p className="text-xl font-black font-mono text-rose-600">
-                {formatCountdown(timeLeft)}
-              </p>
-            </div>
-          </div>
-          <span className="text-xs text-gray-500 hidden sm:inline">
-            Vui lòng hoàn tất thanh toán trước khi hết giờ
-          </span>
-        </div>
+        {/* Countdown Banner (Cách ly re-render) */}
+        <CheckoutCountdownBanner
+          initialSeconds={initialSeconds}
+          onExpire={handleExpire}
+        />
 
         {error && (
           <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2 text-sm">
@@ -795,7 +861,7 @@ export default function CheckoutPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setIsVoucherModalOpen(true)}
+                    onClick={handleOpenVoucherModal}
                     className="text-[11px] font-bold text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 transition-colors cursor-pointer group"
                   >
                     <Sparkles size={12} className="text-teal-500 group-hover:rotate-12 transition-transform" />
@@ -1099,7 +1165,7 @@ export default function CheckoutPage() {
       {/* POPUP MODAL CHỌN VOUCHER / ƯU ĐÃI HIỆN CÓ */}
       <VoucherSelectionModal
         isOpen={isVoucherModalOpen}
-        onClose={() => setIsVoucherModalOpen(false)}
+        onClose={handleCloseVoucherModal}
         onApplyVoucher={handleApplyVoucherFromModal}
         currentVoucherCode={appliedVoucher?.promotion?.code}
         orderAmount={rawTotalAmount}

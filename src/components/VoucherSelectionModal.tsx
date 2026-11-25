@@ -24,7 +24,7 @@ interface VoucherSelectionModalProps {
   ticketTotal?: number
 }
 
-export const VoucherSelectionModal: React.FC<VoucherSelectionModalProps> = ({
+export const VoucherSelectionModal: React.FC<VoucherSelectionModalProps> = React.memo(({
   isOpen,
   onClose,
   onApplyVoucher,
@@ -37,6 +37,13 @@ export const VoucherSelectionModal: React.FC<VoucherSelectionModalProps> = ({
   const [activeCategory, setActiveCategory] = useState<PromotionCategory>("ALL")
   const [searchQuery, setSearchQuery] = useState("")
 
+  // Ref lưu giữ callback onClose mới nhất, tránh đưa onClose vào dependency array gây re-trigger vô hạn
+  const onCloseRef = React.useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
+  // 1. Chỉ gọi API lấy danh sách ưu đãi đúng 1 lần duy nhất khi modal mở (isOpen chuyển từ false -> true)
   useEffect(() => {
     if (!isOpen) return
 
@@ -46,24 +53,45 @@ export const VoucherSelectionModal: React.FC<VoucherSelectionModalProps> = ({
     getPromotions()
       .then((data) => {
         if (active) {
-          setPromotions(data)
+          setPromotions(data || [])
           setIsLoading(false)
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Lỗi khi tải danh sách voucher:", err)
         if (active) setIsLoading(false)
       })
 
+    return () => {
+      active = false
+    }
+  }, [isOpen])
+
+  // 2. Lắng nghe phím ESC để đóng modal
+  useEffect(() => {
+    if (!isOpen) return
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") onCloseRef.current?.()
     }
     window.addEventListener("keydown", handleKeyDown)
 
     return () => {
-      active = false
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
+
+  // 3. Khóa cuộn trang (body overflow) khi modal mở, không gây layout shift nhờ scrollbar-gutter
+  useEffect(() => {
+    if (!isOpen) return
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -394,6 +422,8 @@ export const VoucherSelectionModal: React.FC<VoucherSelectionModalProps> = ({
       </div>
     </div>
   )
-}
+})
+
+VoucherSelectionModal.displayName = "VoucherSelectionModal"
 
 export default VoucherSelectionModal
