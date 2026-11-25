@@ -176,6 +176,9 @@ export async function holdSeats(req: AuthRequest, res: Response) {
         expiresInSeconds: 300,
         totalAmount,
       }
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     return res.status(200).json(result)
@@ -493,6 +496,9 @@ export async function payBooking(req: AuthRequest, res: Response) {
         payment,
         tickets: createdTickets,
       }
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     // Gửi email vé điện tử đến tài khoản khách hàng (không để lỗi mail làm gián đoạn response)
@@ -715,6 +721,9 @@ export async function cancelBooking(req: AuthRequest, res: Response) {
           data: { status: "FAILED" },
         })
       }
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     return res.status(200).json({

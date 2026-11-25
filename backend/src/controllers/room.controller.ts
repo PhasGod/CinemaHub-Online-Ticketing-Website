@@ -336,6 +336,9 @@ export async function generateSeatLayout(req: Request, res: Response) {
         orderBy: [{ row: "asc" }, { number: "asc" }],
       })
       return { seats: allSeats, activeCapacity: activeCount }
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     return res.status(201).json({
@@ -366,6 +369,9 @@ export async function updateSeat(req: Request, res: Response) {
       const activeCount = await tx.seat.count({ where: { roomId, isActive: true } })
       await tx.room.update({ where: { id: roomId }, data: { capacity: activeCount } })
       return { updatedSeat, activeCount }
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     return res.json({ message: "Cập nhật ghế thành công", seat: result.updatedSeat, newRoomCapacity: result.activeCount })
@@ -443,6 +449,9 @@ export async function batchUpdateSeats(req: Request, res: Response) {
         count: updated.count,
         capacity,
       }
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     if (!result.ok) {
@@ -468,6 +477,9 @@ export async function clearSeatLayout(req: Request, res: Response) {
     await prisma.$transaction(async (tx) => {
       await tx.seat.deleteMany({ where: { roomId } })
       await tx.room.update({ where: { id: roomId }, data: { capacity: 0 } })
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
     return res.json({ message: "Đã xóa toàn bộ sơ đồ ghế và đặt lại sức chứa về 0" })
   } catch (error) {

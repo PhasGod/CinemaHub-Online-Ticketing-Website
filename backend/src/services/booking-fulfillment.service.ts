@@ -219,6 +219,9 @@ export async function fulfillSuccessfulBookingPayment(
       payment: paymentRecord,
       tickets: createdTickets,
     }
+  }, {
+    maxWait: 10000,
+    timeout: 20000,
   })
 
   // Nếu mới hoàn tất lần đầu -> Gửi email vé điện tử cho khách hàng

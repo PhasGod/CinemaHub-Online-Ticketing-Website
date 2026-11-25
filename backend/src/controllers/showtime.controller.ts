@@ -146,6 +146,9 @@ export async function createShowtime(req: AuthRequest, res: Response) {
       }
 
       return { showtime, seatsCount: seats.length }
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     return res.status(201).json({

@@ -710,6 +710,9 @@ export async function cancelTicket(req: AuthRequest, res: Response) {
             data: { status: "FAILED" },
           })
         }
+      }, {
+        maxWait: 10000,
+        timeout: 20000,
       })
 
       return res.status(200).json({
@@ -790,6 +793,9 @@ export async function cancelTicket(req: AuthRequest, res: Response) {
           holdExpiresAt: null,
         },
       })
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     return res.status(200).json({

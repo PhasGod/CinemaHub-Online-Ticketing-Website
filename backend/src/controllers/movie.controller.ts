@@ -320,6 +320,9 @@ export async function updateMovie(req: Request, res: Response) {
         },
         include: movieIncludes,
       })
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     })
 
     return res.json({ message: "Cập nhật thông tin phim thành công", movie: formatMovie(updated) })
