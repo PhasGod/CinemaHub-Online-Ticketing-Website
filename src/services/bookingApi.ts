@@ -104,23 +104,8 @@ export async function payBooking(
       totalAmount: payload.totalAmount !== undefined ? Number(String(payload.totalAmount).replace(/[^\d.-]/g, "")) : undefined,
       discountAmount: payload.discountAmount !== undefined ? Number(String(payload.discountAmount).replace(/[^\d.-]/g, "")) : undefined,
       voucherCode: payload.voucherCode ? String(payload.voucherCode) : undefined,
-      customerEmail: payload.customerEmail ? String(payload.customerEmail) : undefined,
-      customerName: payload.customerName ? String(payload.customerName) : undefined,
     }),
   })
-}
-
-export async function resendBookingEmail(
-  bookingId: string | number,
-  email?: string
-): Promise<{ success: boolean; message: string; email: string }> {
-  return apiFetch<{ success: boolean; message: string; email: string }>(
-    `/bookings/${bookingId}/send-email`,
-    {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    }
-  )
 }
 
 export async function getMyTickets(): Promise<{ tickets: TicketItem[] }> {

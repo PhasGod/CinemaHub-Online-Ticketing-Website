@@ -81,8 +81,6 @@ export interface PayBookingPayload {
   totalAmount?: number
   discountAmount?: number
   voucherCode?: string
-  customerEmail?: string
-  customerName?: string
 }
 
 export interface TicketItem {

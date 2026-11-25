@@ -14,11 +14,9 @@ import {
   Loader2,
   AlertCircle,
   AlertTriangle,
-  Mail,
-  Send,
 } from "lucide-react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { getMyTickets, cancelTicket, resendBookingEmail } from "../services/bookingApi"
+import { getMyTickets, cancelTicket } from "../services/bookingApi"
 import { TicketItem, BookingDetail, ShowtimeDetail } from "../types/booking"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -400,45 +398,11 @@ export function SuccessPage() {
     ticketTotal?: number
     comboTotal?: number
     finalTotal?: number
-    customerInfo?: {
-      fullName?: string
-      phone?: string
-      email?: string
-    }
   } | undefined
 
   const [tickets, setTickets] = useState<TicketItem[]>(stateData?.tickets || [])
   const [booking, setBooking] = useState<BookingDetail | null>(stateData?.booking || null)
   const [loading, setLoading] = useState(!stateData?.tickets?.length)
-  const [resendingMail, setResendingMail] = useState(false)
-  const [resendStatus, setResendStatus] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [showEmailInput, setShowEmailInput] = useState(false)
-  const [customEmailInput, setCustomEmailInput] = useState(
-    stateData?.customerInfo?.email || ((stateData?.booking as any)?.user?.email as string) || ""
-  )
-
-  const handleResendTicketEmail = async () => {
-    const bookingId = booking?.id || primaryTicket?.bookingId
-    if (!bookingId) return
-    setResendingMail(true)
-    setResendStatus(null)
-    try {
-      const emailToSend = customEmailInput.trim() || undefined
-      const res = await resendBookingEmail(bookingId, emailToSend)
-      setResendStatus({
-        type: "success",
-        text: `Đã gửi vé điện tử tới ${res.email || emailToSend || "hòm thư của bạn"}! Vui lòng kiểm tra Inbox hoặc Thư rác (Spam).`,
-      })
-      setShowEmailInput(false)
-    } catch (err: any) {
-      setResendStatus({
-        type: "error",
-        text: err?.message || "Không thể gửi lại email vé. Vui lòng kiểm tra lại địa chỉ email.",
-      })
-    } finally {
-      setResendingMail(false)
-    }
-  }
 
   useEffect(() => {
     if (!stateData?.tickets?.length) {
@@ -487,81 +451,8 @@ export function SuccessPage() {
         </div>
         <span className="eyebrow">Thanh toán thành công</span>
         <h1>Đặt vé thành công!</h1>
-        <div className="mt-2.5 flex flex-col items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-medium">
-            <Mail size={14} className="text-amber-400" />
-            <span>Thông tin vé và mã QR đã được gửi về email của bạn</span>
-            {customEmailInput && (
-              <span className="text-amber-300 font-bold">({customEmailInput})</span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                if (!showEmailInput) {
-                  setShowEmailInput(true)
-                } else {
-                  handleResendTicketEmail()
-                }
-              }}
-              disabled={resendingMail}
-              className="text-blue-400 hover:text-blue-300 underline font-medium inline-flex items-center gap-1 transition cursor-pointer"
-            >
-              {resendingMail ? (
-                <>
-                  <Loader2 size={12} className="animate-spin" />
-                  <span>Đang gửi lại email...</span>
-                </>
-              ) : (
-                <>
-                  <Send size={12} />
-                  <span>Chưa nhận được? Gửi lại email vé</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {showEmailInput && (
-            <div className="flex items-center gap-2 max-w-sm w-full mt-1">
-              <input
-                type="email"
-                placeholder="Nhập email nhận vé..."
-                value={customEmailInput}
-                onChange={(e) => setCustomEmailInput(e.target.value)}
-                className="flex-1 px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-700 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-              />
-              <button
-                type="button"
-                onClick={handleResendTicketEmail}
-                disabled={resendingMail || !customEmailInput.trim()}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-              >
-                {resendingMail ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                <span>Gửi</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowEmailInput(false)}
-                className="px-2 py-1.5 text-gray-400 hover:text-gray-200 text-xs cursor-pointer"
-              >
-                Hủy
-              </button>
-            </div>
-          )}
-
-          {resendStatus && (
-            <div
-              className={`text-xs px-3 py-1.5 rounded-lg border max-w-sm ${
-                resendStatus.type === "success"
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                  : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-              }`}
-            >
-              {resendStatus.text}
-            </div>
-          )}
+        <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs">
+          ✉️ Thông tin vé và mã QR đã được gửi về email của bạn
         </div>
         <p>Vé điện tử đã được lưu vào tài khoản và sẵn sàng vào rạp.</p>
 

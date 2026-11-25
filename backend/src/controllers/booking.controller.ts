@@ -26,10 +26,6 @@ const payBookingSchema = z.object({
   discountAmount: z.union([z.number(), z.string()]).optional(),
   voucherCode: z.string().optional(),
   result: z.string().optional(),
-  customerEmail: z.string().optional().nullable(),
-  customerName: z.string().optional().nullable(),
-  email: z.string().optional().nullable(),
-  fullName: z.string().optional().nullable(),
 })
 
 // POST /api/bookings/hold (Yêu cầu đăng nhập)
@@ -505,86 +501,37 @@ export async function payBooking(req: AuthRequest, res: Response) {
       timeout: 20000,
     })
 
-    // 1. Xác định email & họ tên người nhận vé
-    const customEmail =
-      (req.body.customerEmail && typeof req.body.customerEmail === "string" && req.body.customerEmail.trim()) ||
-      (req.body.email && typeof req.body.email === "string" && req.body.email.trim())
-    const targetEmail = customEmail || result.booking.user?.email || req.user?.email
-
-    const customName =
-      (req.body.customerName && typeof req.body.customerName === "string" && req.body.customerName.trim()) ||
-      (req.body.fullName && typeof req.body.fullName === "string" && req.body.fullName.trim())
-    const targetName = customName || result.booking.user?.fullName || req.user?.fullName || "Quý khách"
-
-    // 2. Trả NGAY LẬP TỨC response HTTP 200 cho Frontend (< 1 giây) để màn hình xác nhận thanh toán mượt mà
-    res.status(200).json({
-      success: true,
-      message: "Thanh toán vé thành công",
-      emailRecipient: targetEmail,
-      ...result,
-    })
-
-    // 3. Xử lý gửi email ở chế độ nền (NON-BLOCKING BACKGROUND TASK, TUYỆT ĐỐI KHÔNG AWAIT)
-    if (targetEmail) {
-      (async () => {
-        try {
-          // Chuẩn bị vé kèm đầy đủ quan hệ movie, room, cinema
-          let ticketsToSend = result.tickets
-          if (
-            !ticketsToSend ||
-            ticketsToSend.length === 0 ||
-            !ticketsToSend[0]?.showtime?.movie ||
-            !ticketsToSend[0]?.showtime?.room?.cinema
-          ) {
-            ticketsToSend = await prisma.ticket.findMany({
-              where: { bookingId: result.booking.id },
-              include: {
-                seat: true,
-                showtime: {
-                  include: {
-                    movie: true,
-                    room: { include: { cinema: true } },
-                  },
-                },
-              },
-            })
-          }
-
-          if (ticketsToSend && ticketsToSend.length > 0) {
-            console.log(`[Email Background] Bắt đầu gửi vé tới: ${targetEmail} cho đơn ${result.booking.bookingCode}...`)
-            sendBookingTicketEmail({
-              userEmail: targetEmail,
-              userName: targetName,
-              booking: {
-                id: result.booking.id,
-                bookingCode: result.booking.bookingCode,
-                totalAmount: result.booking.totalAmount,
-              },
-              payment: {
-                transactionCode: result.payment?.transactionCode || "N/A",
-                method: result.payment?.method || "MOCK",
-                paidAt: result.payment?.paidAt || new Date(),
-              },
-              tickets: ticketsToSend,
-            })
-              .then((mailRes) => {
-                if (mailRes.success) {
-                  console.log(`[Email] Đã gửi vé thành công tới: ${targetEmail} (MessageId: ${mailRes.messageId})`)
-                } else {
-                  console.error(`[Email Failed] Lỗi gửi mail tới ${targetEmail}:`, mailRes.error)
-                }
-              })
-              .catch((err) => {
-                console.error(`[Email Failed] Lỗi gửi mail ngầm:`, err.message || err)
-              })
-          }
-        } catch (bgErr: any) {
-          console.error(`[Email Failed] Lỗi nạp dữ liệu vé gửi mail ngầm:`, bgErr.message || bgErr)
-        }
-      })()
+    // Gửi email vé điện tử đến tài khoản khách hàng (không để lỗi mail làm gián đoạn response)
+    try {
+      const targetEmail = result.booking.user?.email || req.user?.email
+      if (targetEmail && result.tickets && result.tickets.length > 0) {
+        sendBookingTicketEmail({
+          userEmail: targetEmail,
+          userName: result.booking.user?.fullName || req.user?.fullName,
+          booking: {
+            id: result.booking.id,
+            bookingCode: result.booking.bookingCode,
+            totalAmount: result.booking.totalAmount,
+          },
+          payment: {
+            transactionCode: result.payment?.transactionCode || "N/A",
+            method: result.payment?.method || "MOCK",
+            paidAt: result.payment?.paidAt || new Date(),
+          },
+          tickets: result.tickets,
+        }).catch((emailErr) => {
+          console.error("[PAY_BOOKING] Lỗi khi gửi email vé:", emailErr)
+        })
+      }
+    } catch (mailSyncErr) {
+      console.error("[PAY_BOOKING] Lỗi khởi tạo gửi email vé:", mailSyncErr)
     }
 
-    return
+    return res.status(200).json({
+      success: true,
+      message: "Thanh toán vé thành công",
+      ...result,
+    })
   } catch (error: any) {
     console.error("[PAY_BOOKING] Lỗi thanh toán vé:", error)
     const statusCode =

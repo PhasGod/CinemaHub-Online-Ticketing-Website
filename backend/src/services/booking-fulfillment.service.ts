@@ -9,8 +9,6 @@ export interface FulfillBookingParams {
   paidAmount?: number
   showtimeId?: string
   seatIds?: Array<string | number>
-  customerEmail?: string
-  customerName?: string
 }
 
 export interface FulfillBookingResult {
@@ -226,68 +224,27 @@ export async function fulfillSuccessfulBookingPayment(
     timeout: 20000,
   })
 
-  // Nếu mới hoàn tất lần đầu -> Gửi email vé điện tử cho khách hàng (chế độ ngầm, TUYỆT ĐỐI KHÔNG AWAIT)
+  // Nếu mới hoàn tất lần đầu -> Gửi email vé điện tử cho khách hàng
   if (!result.alreadyCompleted) {
-    const targetEmail = params.customerEmail?.trim() || result.booking.user?.email
-    const targetName = params.customerName?.trim() || result.booking.user?.fullName || "Quý khách"
-
-    if (targetEmail) {
-      (async () => {
-        try {
-          // Đảm bảo đầy đủ dữ liệu quan hệ cho vé
-          let ticketsToSend = result.tickets
-          if (
-            !ticketsToSend ||
-            ticketsToSend.length === 0 ||
-            !ticketsToSend[0]?.showtime?.movie ||
-            !ticketsToSend[0]?.showtime?.room?.cinema
-          ) {
-            ticketsToSend = await prisma.ticket.findMany({
-              where: { bookingId: result.booking.id },
-              include: {
-                seat: true,
-                showtime: {
-                  include: {
-                    movie: true,
-                    room: { include: { cinema: true } },
-                  },
-                },
-              },
-            })
-          }
-
-          if (ticketsToSend && ticketsToSend.length > 0) {
-            console.log(`[BOOKING-FULFILLMENT Background] Bắt đầu gửi vé tới: ${targetEmail} (Mã đơn: ${result.booking.bookingCode})...`)
-            sendBookingConfirmationEmail({
-              userEmail: targetEmail,
-              userName: targetName,
-              booking: {
-                id: result.booking.id,
-                bookingCode: result.booking.bookingCode,
-                totalAmount: result.booking.totalAmount,
-              },
-              payment: {
-                transactionCode: result.payment.transactionCode,
-                method: result.payment.method,
-                paidAt: result.payment.paidAt,
-              },
-              tickets: ticketsToSend,
-            })
-              .then((mailRes) => {
-                if (mailRes.success) {
-                  console.log(`[Email] Đã gửi vé thành công tới: ${targetEmail} (MessageId: ${mailRes.messageId})`)
-                } else {
-                  console.error(`[Email Failed] Lỗi gửi mail tới ${targetEmail}:`, mailRes.error)
-                }
-              })
-              .catch((err) => {
-                console.error(`[Email Failed] Lỗi gửi mail ngầm:`, err.message || err)
-              })
-          }
-        } catch (bgErr: any) {
-          console.error("[BOOKING-FULFILLMENT] Lỗi nạp vé gửi email ngầm:", bgErr.message || bgErr)
-        }
-      })()
+    const targetEmail = result.booking.user?.email
+    if (targetEmail && result.tickets && result.tickets.length > 0) {
+      sendBookingConfirmationEmail({
+        userEmail: targetEmail,
+        userName: result.booking.user?.fullName,
+        booking: {
+          id: result.booking.id,
+          bookingCode: result.booking.bookingCode,
+          totalAmount: result.booking.totalAmount,
+        },
+        payment: {
+          transactionCode: result.payment.transactionCode,
+          method: result.payment.method,
+          paidAt: result.payment.paidAt,
+        },
+        tickets: result.tickets,
+      }).catch((emailErr) => {
+        console.error("[BOOKING-FULFILLMENT] Lỗi gửi email vé:", emailErr)
+      })
     }
   }
 
