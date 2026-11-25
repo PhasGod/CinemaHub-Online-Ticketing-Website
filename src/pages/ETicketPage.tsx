@@ -414,7 +414,7 @@ export function SuccessPage() {
   const [resendStatus, setResendStatus] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [showEmailInput, setShowEmailInput] = useState(false)
   const [customEmailInput, setCustomEmailInput] = useState(
-    stateData?.customerInfo?.email || (stateData?.booking?.user as any)?.email || ""
+    stateData?.customerInfo?.email || ((stateData?.booking as any)?.user?.email as string) || ""
   )
 
   const handleResendTicketEmail = async () => {

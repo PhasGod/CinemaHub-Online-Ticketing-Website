@@ -87,6 +87,9 @@ export function getMailTransporter(): Transporter | null {
     tls: {
       rejectUnauthorized: false,
     },
+    connectionTimeout: 10000, // 10s timeout mở kết nối tới SMTP server
+    greetingTimeout: 10000,   // 10s timeout chờ lời chào SMTP
+    socketTimeout: 15000,     // 15s timeout socket
   })
 }
 
