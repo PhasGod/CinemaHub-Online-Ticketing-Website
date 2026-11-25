@@ -260,6 +260,7 @@ export default function CheckoutPage() {
                 ticketTotal,
                 comboTotal,
                 finalTotal,
+                customerInfo: stateData?.customerInfo,
               },
             })
           }, 1200)
@@ -299,6 +300,8 @@ export default function CheckoutPage() {
           totalAmount: Number(rawTotalAmount || 0),
           discountAmount: Number(discountAmount || 0),
           voucherCode: appliedVoucher?.promotion?.code || undefined,
+          customerEmail: stateData?.customerInfo?.email || undefined,
+          customerName: stateData?.customerInfo?.fullName || undefined,
         })
 
         // Điều hướng sang trang vé điện tử
@@ -312,6 +315,7 @@ export default function CheckoutPage() {
             ticketTotal,
             comboTotal,
             finalTotal,
+            customerInfo: stateData?.customerInfo,
           },
         })
       } catch (err: any) {

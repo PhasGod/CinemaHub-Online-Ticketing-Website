@@ -160,15 +160,16 @@ export async function sendBookingConfirmationEmail(
   }
 
   const firstTicket = tickets[0]
-  const showtime = firstTicket.showtime
-  const movie = showtime.movie
-  const room = showtime.room
-  const cinema = room.cinema
-  const { timeStr, dateStr } = formatShowDateTime(showtime.startTime)
+  const showtime = firstTicket?.showtime || ({} as any)
+  const movie = showtime?.movie || { title: "Vé xem phim CinemaHub" }
+  const room = showtime?.room || { name: "Phòng chiếu" }
+  const cinema = room?.cinema || { name: "5TOP CINEMA", address: "" }
+  const { timeStr, dateStr } = formatShowDateTime(showtime?.startTime || new Date())
 
   const seatNames = tickets
-    .map((t) => `${t.seat.row}${t.seat.number}`)
-    .join(", ")
+    .map((t) => (t.seat ? `${t.seat.row || ""}${t.seat.number || ""}` : t.ticketCode))
+    .filter(Boolean)
+    .join(", ") || "Ghế xem phim"
 
   // Chuẩn bị danh sách QR Code đính kèm dạng inline CID để tất cả email client hiển thị ảnh sắc nét
   const attachments: any[] = []
@@ -192,8 +193,11 @@ export async function sendBookingConfirmationEmail(
         })
       }
 
+      const seatRow = ticket.seat?.row || ""
+      const seatNum = ticket.seat?.number || ""
+      const seatDisplay = seatRow || seatNum ? `${seatRow}${seatNum}` : ticket.ticketCode
       const seatTypeLabel =
-        ticket.seat.type === "vip"
+        ticket.seat?.type === "vip"
           ? '<span style="background-color:#EF4444;color:#FFFFFF;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;">VIP</span>'
           : '<span style="background-color:#3B82F6;color:#FFFFFF;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;">THƯỜNG</span>'
 
@@ -201,7 +205,7 @@ export async function sendBookingConfirmationEmail(
         <div style="background-color:#1E1E24;border:1px solid #33333F;border-radius:12px;padding:20px;margin-bottom:18px;text-align:center;">
           <div style="font-size:13px;color:#A1A1AA;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Vé Điện Tử #${index + 1}</div>
           <div style="font-size:22px;font-weight:bold;color:#FACC15;margin-bottom:4px;">
-            Ghế: ${ticket.seat.row}${ticket.seat.number} &nbsp; ${seatTypeLabel}
+            Ghế: ${seatDisplay} &nbsp; ${seatTypeLabel}
           </div>
           <div style="font-size:14px;color:#E4E4E7;margin-bottom:14px;">
             Mã vé: <strong style="color:#FFFFFF;letter-spacing:1.5px;font-family:monospace;background:#27272A;padding:3px 8px;border-radius:4px;">${ticket.ticketCode}</strong>
