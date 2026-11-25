@@ -26,7 +26,6 @@ const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:8443"
 
 // Danh sách các domain được phép truy cập CORS
 const allowedOrigins = [
-  "https://cinemahub-online-ticketing-website.onrender.com",
   "https://cinema-hub-online-ticketing-website.vercel.app",
   "https://backend-cinema-muxu.onrender.com",
   CLIENT_URL,
@@ -41,22 +40,21 @@ const allowedOrigins = [
 // Hàm kiểm tra origin linh hoạt (hỗ trợ Vercel preview branch, Render, localhost)
 const isAllowedOrigin = (origin?: string): boolean => {
   if (!origin) return true // Mobile apps, Postman, curl, server-to-server
-  const cleanOrigin = origin.replace(/\/+$/, "")
-  if (allowedOrigins.some((o) => o.replace(/\/+$/, "") === cleanOrigin)) return true
+  if (allowedOrigins.includes(origin)) return true
   // Cho phép tất cả subdomain của Vercel (production & preview branches)
-  if (/^https:\/\/.*\.vercel\.app$/.test(cleanOrigin)) return true
-  // Cho phép tất cả domain Render (.onrender.com)
-  if (/^https:\/\/.*\.onrender\.com$/.test(cleanOrigin)) return true
+  if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true
+  // Cho phép domain Render
+  if (/^https:\/\/.*\.onrender\.com$/.test(origin)) return true
   // Cho phép localhost / 127.0.0.1 ở mọi cổng khi dev
-  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) return true
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true
   return false
 }
 
 // Cấu hình CORS
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    if (!origin || isAllowedOrigin(origin)) {
-      callback(null, origin || true)
+    if (isAllowedOrigin(origin)) {
+      callback(null, true)
     } else {
       callback(null, false)
     }
@@ -85,24 +83,6 @@ app.set("trust proxy", 1)
 // ==========================================
 app.use(cors(corsOptions))
 app.options("*", cors(corsOptions))
-
-// Middleware bảo đảm luôn gắn header CORS và phản hồi 204 cho preflight OPTIONS
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const origin = req.headers.origin as string | undefined
-  if (isAllowedOrigin(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*")
-    res.setHeader("Access-Control-Allow-Credentials", "true")
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-CinemaHub-Request, X-Requested-With, Accept, Origin"
-    )
-  }
-  if (req.method === "OPTIONS") {
-    return res.status(204).end()
-  }
-  next()
-})
 
 // 2. Body parsers & cookie parser
 app.use(express.json({ limit: "2mb" }))

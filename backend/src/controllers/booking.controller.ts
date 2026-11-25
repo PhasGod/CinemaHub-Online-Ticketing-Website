@@ -955,15 +955,7 @@ export async function resendBookingEmail(req: AuthRequest, res: Response) {
       return res.status(400).json({ error: "Không tìm thấy địa chỉ email người nhận" })
     }
 
-    // Phản hồi HTTP 200 ngay lập tức cho client (< 500ms)
-    res.status(200).json({
-      success: true,
-      message: "Yêu cầu gửi mail đã được tiếp nhận",
-      email: targetEmail,
-    })
-
-    // Gửi email ở chế độ nền (non-blocking, tuyệt đối không dùng await)
-    sendBookingConfirmationEmail({
+    const result = await sendBookingConfirmationEmail({
       userEmail: targetEmail,
       userName: booking.user?.fullName || req.user.fullName,
       booking: {
@@ -980,18 +972,18 @@ export async function resendBookingEmail(req: AuthRequest, res: Response) {
         : undefined,
       tickets: booking.tickets,
     })
-      .then((mailRes) => {
-        if (mailRes.success) {
-          console.log(`[Resend Email] Đã gửi vé thành công tới: ${targetEmail} (MessageId: ${mailRes.messageId})`)
-        } else {
-          console.error(`[Resend Email Failed] Lỗi gửi mail tới ${targetEmail}:`, mailRes.error)
-        }
-      })
-      .catch((err) => {
-        console.error("[Resend Email Error]:", err?.message || err)
-      })
 
-    return
+    if (!result.success) {
+      return res.status(500).json({
+        error: `Không thể gửi email: ${result.error || "Lỗi dịch vụ mail"}`,
+      })
+    }
+
+    return res.json({
+      message: `Đã gửi vé điện tử thành công tới ${targetEmail}`,
+      email: targetEmail,
+      mocked: result.mocked,
+    })
   } catch (error) {
     console.error("Resend booking email error:", error)
     return res

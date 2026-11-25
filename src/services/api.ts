@@ -1,13 +1,4 @@
-const defaultRemoteBackend = "https://backend-cinema-muxu.onrender.com"
-const isProductionDomain =
-  typeof window !== "undefined" &&
-  (window.location.hostname.includes("onrender.com") || window.location.hostname.includes("vercel.app"))
-
-const rawBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  (isProductionDomain ? defaultRemoteBackend : "/api")
-
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "/api"
 const API_BASE_URL = rawBaseUrl.replace(/\/+$/, "")
 
 export async function apiFetch<T>(
